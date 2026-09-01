@@ -71,6 +71,18 @@ else
   FAIL=1
 fi
 
+echo "== 机制锚定校验（sanjiu-core 事实源，红线 12 v2：一处事实源+版本锚定）=="
+CORE_DIR="$HOME/codex-workspace/00_global-shared/mechanisms/sanjiu-core"
+if [ -f "$CORE_DIR/tools/sync-local.sh" ]; then
+  if bash "$CORE_DIR/tools/sync-local.sh" --check >/tmp/sync-check.log 2>&1; then
+    echo "  ✓ sanjiu-core 锚定一致（$(grep -o '锚定一致.*' /tmp/sync-check.log | head -1)）"
+  else
+    echo "  ✗ sanjiu-core 锚定校验失败（详见 /tmp/sync-check.log）——跑 sync-local.sh 重新生成"; FAIL=1
+  fi
+else
+  echo "  ✗ sanjiu-core 机制仓缺失（bootstrap.sh 未跑？）"; FAIL=1
+fi
+
 echo "== 输出治理 + 复盘改进机制（MECH-09，2026-09-02 三审终裁方案 C）=="
 # 机制存在性校验（缺失禁止开工）：AGENTS.md 条款 + ledger 文件 + bridge_core 注入实现
 if grep -q "输出硬约束" "$WS_AGENTS" 2>/dev/null && grep -q "复盘门禁" "$WS_AGENTS" 2>/dev/null; then
