@@ -60,7 +60,7 @@ v5】的闭环智能工作机制，完整更新写入项目根目录 agents.md�
 
 已生效环境变量模型清单（九方，MECH-03 定稿 v8，输入价序，详见 §二/§六；
 主锚=输入价、次级锚=输出价；2026-08-16 联网核实修正 5 处价格错误）：
-1. deepseek-v4-flash：一审承办（输入 1.5 空闲档，当前会话执行引擎不变；
+1. glm-5.3-flash：一审承办（输入 0.8/输出 2.8；2026-09-02 老板 T1 全线替换 ds-v4-flash；
    8/17 前 1/2；8/17 起峰谷：空闲 1.5/4.5、高峰 3/9；原表 0.8/4.8 有误）
 2. hunyuan-hy3：一审对抗审计（腾讯混元 Hy3，输入 1 全场最低；付费 1/4/0.25）
 3. minimax-m3：一审裁决（输入 2.1/输出 8.4 官方永久五折；原价 4.2/16.8）
@@ -86,11 +86,12 @@ v5】的闭环智能工作机制，完整更新写入项目根目录 agents.md�
 
 | 审级 | 承办（lead） | 对抗审计（antagonist） | 裁决（judge） |
 |---|---|---|---|
-| 一审·基础层（全量，最便宜） | DeepSeek V4 Flash（1.5/4.5；8/17 起峰谷：空闲 1.5/4.5、高峰 3/9） | 混元 Hy3（1/4） | MiniMax M3（2.1/8.4 永久五折） |
+| 一审·基础层 | **GLM-5.3-flash（0.8/2.8，2026-09-02 老板 T1 全线替换；推广期 0.4/1.4 至 9/9）** | 混元 Hy3（1/4） | MiniMax M3（2.1/8.4 永久五折） |
 | 二审·升级层（介入 ≥70%） | 豆包 2.1 Turbo（3/15） | DeepSeek V4 Pro（4.5/13.5；8/17 起峰谷：空闲 4.5/13.5、高峰 9/27） | Kimi K2.7 Code 普通版（6.5/27，临时；冷备 M3→Hy3→Flash） |
 | 三审·终审层（重大性全量+随机30%） | GLM-5.3（8/28） | Qwen3.8 Max（12/36） | Kimi K3（20/100，全矩阵最贵→低频） |
 
 单位：¥/百万 tokens（输入/输出）。排序口径：**主锚=输入价（¥/M）升序、次级锚=输出价**（2026-08-15 老板拍板）。
+> **2026-09-02 越级注**：glm-5.3-flash（输入 0.8）低于 hy3（1.0）为全矩阵最便宜席，与价格序冲突——老板 T1 指定优先（承办席位不变），越级记录见 cost-opt decision.jsonl。
 **席位排序规则（老板 2026-08-15 拍板 v7.1）**：从一审承办到三审裁决按**输入价（¥/M）
 升序**排列（次级锚=输出价）；贵模型放低频审级（控制运营成本）；**每周五检索九方官方
 价格**，价格变动或顺序变化立即飞书提示老板并动态重排（重排走三审九方审计）。
@@ -183,7 +184,7 @@ M3→Hy3→Flash。
 
 | 席位 | 模型 | 环境变量 | 调用命令 | 价格（¥/M 入/出） |
 |---|---|---|---|---|
-| 一审·承办 | deepseek-v4-flash | DEEPSEEK_API_KEY | 当前会话 | 1.5/4.5（8/17 起空闲档；高峰 3/9） |
+| 一审·承办 | glm-5.3-flash | GLM_API_KEY | 当前会话 | 0.8/2.8（正式价 9/9 生效；推广期 0.4/1.4；缓存 0.23） |
 | 一审·对抗 | hunyuan-hy3 | HUNYUAN_API_KEY | `hunyuan-audit audit <file> [focus]` | 1/4（缓存 0.25） |
 | 一审·裁决 | minimax-m3 | MINIMAX_API_KEY | `minimax-audit`（--model MiniMax-M3） | 2.1/8.4（永久五折） |
 | 二审·承办 | doubao-2.1-turbo | ARK_API_KEY | `doubao-audit` | 3/15 |
@@ -192,7 +193,7 @@ M3→Hy3→Flash。
 | 三审·承办 | glm-5.3 | GLM_API_KEY | `glm-audit` | 8/28 |
 | 三审·对抗 | qwen3.8-max | QWEN_API_KEY | `qwen-text-audit` | 12/36 |
 | 三审·裁决 | kimi-k3 | MOONSHOT_API_KEY | `kimi`（--model kimi-k3） | 20/100（最贵→低频） |
-| 视觉专属席（工具） | deepseek-v4-flash-vision-exp | DEEPSEEK_API_KEY | `ds-vision read <图> "<问题>"` | 1.5/4.5（2026-08-24 老板 T1 拍板默认；8/31 前核验官方价） |
+| 视觉专属席·读图（工具） | glm-5.3-flash | GLM_API_KEY | `glm-vision read <图> "<问题>"` | 0.8/2.8（2026-09-02 老板 T1 全线替换；失败升级 kimi-k3 不变） |
 | 视觉专属席·文生图（工具） | cogview-4（cogview-4-250304） | GLM_API_KEY | `glm-image generate "<提示词>" -o <输出路径>` | 0.06 元/张 |
 | 视觉专属席·视频理解（工具） | glm-5.3-flash（Ox Alpha） | GLM_API_KEY | `glm-vision video <视频> "<问题>"` | 0.8/2.8（缓存 0.23） |
 | 调度专属席（工具，2026-08-31） | —（桥接内核统一分派） | 各席位密钥 | `dsh-audit submit/status/output <任务包>` | 见 yaml 席位 price |
@@ -219,8 +220,8 @@ M3→Hy3→Flash。
 > 文生图专属席同为工具席位：视觉素材独立生成、不走三审程序（图像模型只负责图像，
 > 不参与代码审计与裁决）；CogView-4 不可用时降级 qwen-image（Qwen-Image-3.0，
 > 0.18 元/张）。
-> 命名口径：`ds-vision` / `glm-image` / `qwen-image` 是桥接命令名；
-> `deepseek-v4-flash-vision-exp` / `cogview-4` / `qwen-image-3.0` 是 API 模型 ID，二者不同维度不冲突
+> 命名口径：`glm-vision` / `glm-image` / `qwen-image` 是桥接命令名；
+> `glm-5.3-flash` / `cogview-4` / `qwen-image-3.0` 是 API 模型 ID，二者不同维度不冲突
 > （与「hunyuan-hy3 模型 ID + hunyuan-audit 命令名」同构）。
 
 ## 七、执行操作手册（CodeX 落地接线）
@@ -269,19 +270,18 @@ minimax-audit qwen-text-audit sanjiu_cli.py`；任一缺失或环境变量缺失
 
 ## 十、图像理解（读图）专项分工（2026-08-24 更新：读图默认 ds-v4-flash-vision-exp）
 
-> **固定安排（2026-08-24 老板 T1 拍板）**：读图默认模型 = **deepseek-v4-flash-vision-exp**
-> （`ds-vision read <图> "<问题>"`，DEEPSEEK_API_KEY）；**失败/被指责读图不清 → 强制
-> 升级 Kimi Vision（kimi-k3）**（视觉二次席）；qwen-vl-plus **弃用默认**，不再作为
-> 读图通道；完整兜底链、弃用项与故障处理见 EEP 机制包
+> **固定安排（2026-09-02 老板 T1 更新）**：读图默认模型 = **glm-5.3-flash**
+> （`glm-vision read <图> "<问题>"`，GLM_API_KEY——2026-09-02 起全线替换 ds-v4-flash-vision-exp）；**失败/读图不清 → 强制
+> 升级 Kimi Vision（kimi-k3）**（视觉二次席）；qwen-vl-plus 与 ds-vision（deepseek-v4-flash-vision-exp）弃用默认；完整兜底链见 EEP 机制包
 > `docs/mechanism-pack/07-API配置与九方模型清单.md` §一·二（文生图主 cogview-4 →
 > qwen-image-3.0；GLM 免费视觉弃用；yaml `tool_seats.vision_read.model=
-> deepseek-v4-flash-vision-exp`、`alternates=[kimi-k3]`）。新窗口/新机器开工必读，
+> glm-5.3-flash`、`alternates=[kimi-k3]`）。新窗口/新机器开工必读，
 > 禁止凭记忆更换视觉模型。
 
-1. **读图默认 = 视觉专属席 deepseek-v4-flash-vision-exp（`ds-vision read <图片>
+1. **读图默认 = 视觉专属席 glm-5.3-flash（`glm-vision read <图片>
    "<问题>"`，DEEPSEEK_API_KEY）**：UI 截图、页面截图、流程图、图表、文档图的
    日常解析优先走它，**不走三审程序**；
-2. **读图不清/失败升级（强制）**：ds-vision 读图不清、报错、或同一问题被老板
+2. **读图不清/失败升级（强制）**：glm-vision read 读图不清、报错、或同一问题被老板
    第二次指责未修复 → **升级 Kimi Vision（`kimi vision <图片> "<问题>"`，
    kimi-k3）**（复杂读图兜底走视觉独立记账，K3 官方价 20/100）；qwen-vl-plus
    **弃用默认，不再作为读图通道**；
@@ -290,7 +290,7 @@ minimax-audit qwen-text-audit sanjiu_cli.py`；任一缺失或环境变量缺失
    转业务描述交人工终审；
 5. **读图再验收（强制，老板 2026-08-15 拍板）**：页面/UI 类交付进对抗审计前，承办
    必须附页面截图（深浅主题）+ 关键线条/数值像素丈量表；对抗席先用
-   `ds-vision read <截图> "<逐区块问题>"` 读图复核布局/配色/线宽/数值勾稽，再
+   `glm-vision read <截图> "<逐区块问题>"` 读图复核布局/配色/线宽/数值勾稽，再
    逐区块对照需求文档验收；「读图 + 机械像素丈量」双证据齐备才允许验收通过，
   禁止仅凭文本实现清单验收页面表现（红线 #10 执行细则）；像素丈量表必须为截图
   实测数值（尺寸/线宽/间距/数值），禁止填写声明值。
@@ -301,7 +301,7 @@ minimax-audit qwen-text-audit sanjiu_cli.py`；任一缺失或环境变量缺失
    `qwen-image generate`（Qwen-Image-3.0，0.18 元/张）；只生成不理解，独立记账。
 7. **视觉验收流 v1（三级，老板 2026-08-15 拍板）**：视觉双席不设独立三审九方流，
    采用轻量三级验收——**L1 内部素材**（UI 演示图/图标/氛围图）：提示词 → 生成 →
-   `ds-vision` 回读核对（满足度/文字/敏感内容）→ 留痕（prompt+图哈希+读图结论）
+   `glm-vision read` 回读核对（满足度/文字/敏感内容）→ 留痕（prompt+图哈希+读图结论）
    即复用；**L2 对外交付素材**（宣传图/报告插图/客户演示）：L1 自检后并入所在
    交付物的三审审计输入，作为「需求→证据」对照的截图证据被正式审；**L3 高影响
    读图**（验收裁决依据/资金/法律/合规判断）：读图 + 机械像素丈量双证据强制，
@@ -613,7 +613,7 @@ decision.jsonl / model-choice.jsonl / price-watch-*.jsonl / override_log.jsonl�
   ≠ 移动端可运行）。
 
 ## §十 增补（2026-08-24 老板 T1 拍板）
-读图默认模型 = deepseek-v4-flash-vision-exp（`ds-vision read <图> "<问题>"`，DEEPSEEK_API_KEY）；
+读图默认模型 = glm-5.3-flash（`glm-vision read <图> "<问题>"`，GLM_API_KEY；2026-09-02 老板 T1 替换）；
 失败自动降级 kimi-k3（视觉二次席）；qwen-vl-plus 弃用默认，不再作为读图通道；
 视觉成本独立记账（price_verified_at D+7=2026-08-31 前核验，逾期 cron 自动切 kimi 计价）。
 

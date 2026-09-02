@@ -68,12 +68,12 @@ seats:
     name: 一审·承办
     stage: 1
     role: lead
-    model: deepseek-v4-flash
-    api_id: deepseek-v4-flash  # 真实厂商 API ID（网关调用用；单源，2026-08-15 一审裁决 A）
+    model: glm-5.3-flash  # 老板 T1 拍板 2026-09-02：ds-v4-flash 全线替换（性价比+多模态；输入价 0.8 < hy3 1.0 致价格序越级，T1 优先记越级日志）
+    api_id: glm-5.3-flash  # 智谱 API 模型名（Ox Alpha；正式价 9/9 生效，推广 5 折至 9/9）
     cli: session
     connected: true
     enabled: true
-    price: {in: 1.5, out: 4.5}  # 8/17 起空闲档；高峰 3/9（2026-08-16 官方核验）
+    price: {in: 0.8, out: 2.8}  # 官方正式价；推广期 0.4/1.4 至 9/9；缓存命中 0.23（2026-09-02 联网核验）
     bridge: {ttft: 180, heartbeat: 300, max_duration: 1800}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
     max_tokens: 16384  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
     stream: true  # bridge_core 统一流式（2026-08-31 换芯）
@@ -241,8 +241,8 @@ tool_seats: # 工具席位：不参与三审程序，router 分派/审计/裁决
   vision_read:
     name: 视觉专属席·读图
     role: tool
-    model: deepseek-v4-flash-vision-exp
-    cli: ds-vision
+    model: glm-5.3-flash  # 老板 T1 拍板 2026-09-02：视觉初审全线替换（实测四数字与基线一致，2026-09-02 附录 C）
+    cli: glm-vision  # read <图> "<问题>"（默认模型 glm-5.3-flash；失败升级 kimi-k3 不变）
     connected: true
     enabled: true
     price: {in: 1.5, out: 4.5}

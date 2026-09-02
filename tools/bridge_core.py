@@ -254,10 +254,10 @@ def read_input(path):
 def resolve_model(prov, args, env):
     if prov["name"] == "glm-audit":
         model = args.model or env.get("GLM_MODEL", prov["default_model"])
-        if model != "glm-5.3":
-            # 2026-08-15 事故红线：GLM_MODEL 曾指向免费版 glm-4.7-flash；工具层强制正式付费版
-            print(f"GLM 事故红线：model={model} 非 glm-5.3，强制使用 glm-5.3", file=sys.stderr)
-            model = "glm-5.3"
+        if model in ("glm-4.7-flash", "glm-4.6v-flash", "glm-4.5-flash", "glm-4.7"):
+            # 2026-08-15 事故红线（升级 2026-09-02 放行付费 glm-5.3-flash）：免费版/弃用版禁列
+            print(f"GLM 事故红线：model={model} 为免费版/弃用版，强制使用 {prov['default_model']}", file=sys.stderr)
+            model = prov["default_model"]
         return model
     if prov["name"] == "kimi":
         return args.model or env.get("KIMI_MODEL", prov["default_model"])
