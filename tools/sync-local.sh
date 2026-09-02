@@ -13,7 +13,7 @@ WS_AGENTS="$WS/AGENTS.md"
 FAIL=0
 
 header_version() {  # 从产物头部提取锚定版本
-  head -3 "$1" 2>/dev/null | grep -o 'sanjiu-core@v[0-9.]*[0-9a-f]*' | head -1 | sed 's/sanjiu-core@//'
+  head -3 "$1" 2>/dev/null | grep -o 'sanjiu-core@v[0-9.]*\(-g[0-9a-f]\+\)\?' | head -1 | sed 's/sanjiu-core@//'
 }
 
 core_head() {  # 机制仓最新 tag（含 commit 短哈希）
