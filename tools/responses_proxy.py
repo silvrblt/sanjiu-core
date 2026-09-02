@@ -62,7 +62,8 @@ def conv_request(body):
                     "name": t.get("name", ""), "description": t.get("description", ""),
                     "parameters": t.get("parameters") or {"type": "object", "properties": {}}}})
             # 非 function 类型（web_search 等）跳过：智谱 chat 无对应
-    out = {"model": body.get("model", "glm-5.3-flash"), "messages": msgs, "stream": bool(body.get("stream"))}
+    out = {"model": body.get("model", "glm-5.3-flash"), "messages": msgs, "stream": bool(body.get("stream")),
+           "thinking": {"type": "enabled", "output": os.environ.get("RSPROXY_THINKING", "low")}}  # codex 承办通道默认 low（2026-09-03 老板确认；复杂任务可 env 提档）
     if body.get("max_output_tokens"):
         out["max_tokens"] = int(body["max_output_tokens"])
     if body.get("temperature") is not None:

@@ -385,6 +385,9 @@ def call_once(prov, key, messages, max_tokens, tcfg, progress_file=None, start_t
         "stream": True,
         "temperature": 1.0,
     }
+    # GLM-5.3-flash 思考档位：审计链显式 high（质量优先，2026-09-03 老板确认；模型强制思考不可关闭）
+    if str(max_tokens.get("_model", "")).startswith("glm-5.3-flash"):
+        body["thinking"] = {"type": "enabled", "output": "high"}
     if prov["name"] == "kimi":
         # Moonshot 流式默认不返回 usage；需 stream_options.include_usage
         # （成本铁律逐笔记账依赖 usage，2026-08-31 实测补）
