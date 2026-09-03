@@ -337,7 +337,8 @@ minimax-audit qwen-text-audit sanjiu_cli.py`；任一缺失或环境变量缺失
 ## 十一、GitHub 与多机协作约定
 
 - 仓库统一放 GitHub 账号 `silvrblt` 下（私有优先）；SSH `~/.ssh/github_silvrblt`；
-- 规范仓库 = `codex-agents`（本文件/迁移包/提示词模板），新机器 clone 即得；
+- **机制唯一事实源 = `silvrblt/sanjiu-core`**（本文件机制全文 + MECH 系列 + yaml/ledger/工具 + 立案庭路由，2026-09-03 起）；`codex-agents` = 引导仓（bootstrap.sh 拉取机制仓 + 生成产物 + 自检），新机器 clone codex-agents → bootstrap 即得全套；
+- **项目级映射**：各项目（独立 git 仓）AGENTS.md 头部须含本段引用（"审计机制唯一事实源 = silvrblt/sanjiu-core"）；sync-local.sh 检查缺映射项目并提示；新项目创建时由立案庭/承办按此模板初始化；
   工具仓库 = `codex-tools`（kimi-bridge / feishu-bridge 无密钥版）；
 - **工具自举**：新机 `git clone git@github.com:silvrblt/codex-agents.git` 后，
   §七 开工检查失败时执行
