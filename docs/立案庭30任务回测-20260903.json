@@ -1,0 +1,18 @@
+{
+ "date": "2026-09-03",
+ "total": 30,
+ "passed": 28,
+ "rate": 0.9333333333333333,
+ "fails": [
+  {
+   "title": "物料管理数字错位修复",
+   "expect": "A_exception",
+   "got": "A"
+  },
+  {
+   "title": "香港机 fail2ban 配置",
+   "expect": "A_exception",
+   "got": "B"
+  }
+ ]
+}

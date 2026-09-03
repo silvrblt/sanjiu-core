@@ -269,17 +269,14 @@ tool_seats: # 工具席位：不参与三审程序，router 分派/审计/裁决
   image_gen:
     name: 视觉专属席·文生图
     role: tool
-    model: cogview-4
-    api_id: cogview-4-250304  # 智谱官方模型 ID（open.bigmodel.cn，2026-08-15 官方文档核验）
-    cli: glm-image
+    model: doubao-seedream-4-0-250828  # 2026-09-03 老板盲选选定主力（cogview/wanx 两家否决）
+    api_id: doubao-seedream-4-0-250828  # 火山方舟 ARK（ark.cn-beijing.volces.com）
+    cli: ark-image
     connected: true
     enabled: true
-    price: {per_image: 0.06}
-    alternates: [qwen-image-3.0]  # 备选：qwen-image CLI（阿里百炼，0.18 元/张）
-    note: 老板 2026-08-15 指示补上图像生产工作流：视觉素材独立生成，不走三审程序
-          （图像模型只生成不理解，不参与代码审计与裁决）；官方价 0.06 元/张
-          （2026-08-15 官方文档核验，CogView-4 首个支持生成汉字的开源文生图模型、
-          DPG-Bench SOTA、中文出字最强）；密钥复用 GLM_API_KEY；备选 qwen-image-3.0
-          （0.18 元/张）；成本独立记账（视觉场景专款专用）；命名口径同 vision_read：
-          model=API 模型 ID、cli=桥接命令名（glm-image 命令 → cogview-4-250304 模型）；
-          密钥只存 ~/.env 环境变量引用，本文件永不存密钥值（secret 不入库）
+    price: {per_image: 0.3}
+    alternates: [cogview-4-250304]  # 冷备（老板否决但保链路；qwen-image/wanx 系弃用）
+    note: 2026-09-03 老板盲选：seedream-4.0 够格选定主力（ARK_API_KEY 已有，0.3 元/张级）；
+          cogview-4 与 wanx2.1 均被老板否决（盲测"都挺垃圾"）；密钥 ARK_API_KEY；
+          成本独立记账（视觉场景专款专用）；生成前先查目标文件避免重复计费；
+          模型只生成不理解，不参与审计裁决
