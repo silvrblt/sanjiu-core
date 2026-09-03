@@ -177,6 +177,24 @@ SYSTEM = ("你是三审九方机制中的审计/裁决模型。按给定重点�
 
 # ---- R-机制：历史高频错误模式注入（三审 Qwen 终裁 2026-09-02，方案 C）----
 LEDGER_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "errors-ledger.jsonl")
+GUARD_DIMS_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "guard-dimensions.md")
+
+# S8 材质触发关键词（代码/测试/文档产物）
+GUARD_MATERIAL_MARKERS = (".py", ".ts", ".tsx", ".js", ".jsx", ".md", "```python", "```ts", "```js",
+                          "def ", "function ", "class ", "interface ", "export ")
+
+def _load_guard_dims():
+    """读取 S8 维度清单（MECH-guard 2026-09-03）；失败显式降级。"""
+    try:
+        text = open(GUARD_DIMS_PATH, encoding="utf-8").read()
+        # 只取 S8 检查项段（1-10 行维度）
+        start = text.find("## S8")
+        end = text.find("## 执行要求")
+        body = text[start:end] if start >= 0 else text
+        return body, "ok"
+    except Exception as e:
+        print(f"[guard] S8 维度加载失败（{type(e).__name__}），显式降级", file=sys.stderr)
+        return "", "fail"
 
 def _load_error_ledger():
     """加载错误模式库（count>=2 且 active，按 count 降序 top5）。
@@ -209,14 +227,23 @@ def _load_error_ledger():
     except Exception as e:
         return f"【警告：errors-ledger 加载失败（{type(e).__name__}），本次审计为高风险降级模式，请加强人工复核】", "fail"
 
-def _build_system_prompt(base_system):
-    """SYSTEM + 错误模式注入（终裁：全席位含承办；注入失败显式降级标记）。"""
+def _build_system_prompt(base_system, material_hint=""):
+    """SYSTEM + 错误模式注入 + S8 guard 维度（材质自动判定）。"""
     inject, status = _load_error_ledger()
     if status == "fail":
         print(f"[ledger] 加载失败，已显式降级标记", file=sys.stderr)
     elif status == "ok":
         print(f"[ledger] 注入 top 错误模式（{len(inject.splitlines())-2} 条）", file=sys.stderr)
-    return base_system + ("\n\n" + inject if inject else "")
+    out = base_system + ("\n\n" + inject if inject else "")
+    # S8：材料含代码/文档产物即注入（材质判定，非承办声明）
+    if material_hint and any(m in material_hint for m in GUARD_MATERIAL_MARKERS):
+        dims, gs = _load_guard_dims()
+        if gs == "fail":
+            print("[guard] S8 注入失败，显式降级", file=sys.stderr)
+        elif dims:
+            out += "\n\n" + dims
+            print("[guard] 已注入 S8 代码质量检查维度（材质命中）", file=sys.stderr)
+    return out
 
 
 class BridgeError(Exception):
@@ -522,7 +549,7 @@ def run_audit(cli_name, args, env):
     user = f"【待审材料】\n{payload}\n\n【审计重点】{focus}"
     _base_system = args.system or SYSTEM
     if not args.system:  # 显式 --system 保留自定义权（长输出等特殊场景）
-        _base_system = _build_system_prompt(_base_system)
+        _base_system = _build_system_prompt(_base_system, material_hint=payload[:4000])
     messages = [{"role": "system", "content": _base_system},
                 {"role": "user", "content": user}]
     print(f"{cli_name}: [B1] seat_class={bmeta.get('seat_class')} "
