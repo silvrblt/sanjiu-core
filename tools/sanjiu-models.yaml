@@ -68,12 +68,12 @@ seats:
     name: 一审·承办
     stage: 1
     role: lead
-    model: glm-5.3-flash  # 老板 T1 拍板 2026-09-02：ds-v4-flash 全线替换（性价比+多模态；输入价 0.8 < hy3 1.0 致价格序越级，T1 优先记越级日志）
-    api_id: glm-5.3-flash  # 智谱 API 模型名（Ox Alpha；正式价 9/9 生效，推广 5 折至 9/9）
+    model: deepseek-v4-flash  # 2026-09-03 盲测终审回切：通用域 kimi 评分 7.88 vs 7.31 + casensus 法律域 -11.7pct + reasoning 实付高 19 倍——三证合一；GLM-flash 转文风/读图/候选（9/2 切换为 T1 试验，已终结）
+    api_id: deepseek-v4-flash  # 真实厂商 API ID（网关调用用；单源）
     cli: session
     connected: true
     enabled: true
-    price: {in: 0.8, out: 2.8}  # 官方正式价；推广期 0.4/1.4 至 9/9；缓存命中 0.23（2026-09-02 联网核验）
+    price: {in: 1.5, out: 4.5}  # 8/17 起空闲档；高峰 3/9（2026-08-16 官方核验）
     bridge: {ttft: 180, heartbeat: 300, max_duration: 1800}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
     max_tokens: 16384  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
     stream: true  # bridge_core 统一流式（2026-08-31 换芯）
