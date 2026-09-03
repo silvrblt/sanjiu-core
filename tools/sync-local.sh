@@ -79,5 +79,17 @@ if [ -n "$(git -C "$CORE" status --porcelain 2>/dev/null)" ]; then
   echo "  ✗ sanjiu-core 有未提交改动（事实源不干净），提交或 stash 后再开工"; FAIL=1
 fi
 
+# ---- 4. 项目级机制映射检查（2026-09-03 §十一 规则；缺映射提示，不自动改项目仓库）----
+echo "== 项目机制映射（sanjiu-core 唯一事实源）=="
+for d in "$WS"/01_projects/*/; do
+  pf="$d/AGENTS.md"
+  [ -f "$pf" ] || continue
+  if head -6 "$pf" | grep -q "sanjiu-core"; then
+    echo "  ✓ $(basename "$d") 已映射"
+  else
+    echo "  ⚠ $(basename "$d") 缺机制映射头（建议注入 MECH-MAP 引用或删除旧机制全文副本）"
+  fi
+done
+
 [ "$FAIL" -eq 0 ] && echo "== sync-local 校验全部通过 ==" || echo "== sync-local 校验失败（FAIL=1，禁止开工）=="
 exit "$FAIL"
