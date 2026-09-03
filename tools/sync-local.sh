@@ -86,6 +86,8 @@ for d in "$WS"/01_projects/*/; do
   [ -f "$pf" ] || continue
   if head -6 "$pf" | grep -q "sanjiu-core"; then
     echo "  ✓ $(basename "$d") 已映射"
+  elif [ "$(basename "$d")" = "casensus" ]; then
+    echo "  ○ casensus 独立分叉（2026-09-03 项目声明，不随 sanjiu-core 自动同步——知悉例外）"
   else
     echo "  ⚠ $(basename "$d") 缺机制映射头（建议注入 MECH-MAP 引用或删除旧机制全文副本）"
   fi
