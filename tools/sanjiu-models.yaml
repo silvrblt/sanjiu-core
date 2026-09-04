@@ -28,8 +28,52 @@
 # 待接（connected=false）：doubao-2.1-pro / minimax-m2 / qwen3.5-max /
 #       kimi-k2 / glm-5.1——配置位已留，接通后按 §3.2 补盲测记录并 flip enabled。
 
-version: 3
-updated_at: "2026-08-17"
+version: 4
+updated_at: "2026-09-04"
+
+# ---- 立案庭类型路由（2026-09-04 v5 定稿实施；候选池价格核验 v4 全 ✓ verbatim）----
+task_types:
+  # 核心 8 类（首版落地）；扩展类按需（文本校对/翻译/重构/调试/3D/动效/排版/ETL/可视化）
+  core: [text_gen, text_understand, code_gen, code_audit, ui_design, image_understand, image_gen, data_analysis]
+  extended: [text_proof, translation, code_refactor, code_debug, design_3d, design_motion, layout, etl, visualization]
+
+candidate_pool:
+  # 价格核验 v4（17 项 ✓ verbatim，evidence/候选池价格核验-20260903.md）；价格 = 输入/输出（元/百万 token）
+  # 调用选择优先级：①合规异厂 → ②类型专项测评达标 → ③输入价最低 → ④同价档性价比（0.7×达标度+0.3×价优度）
+  # 推荐类型 = 初判（盲测/已知能力），测评后校准（类型测评排期 doc）
+  verified_models:
+    - {model: glm-5.3-flash, price_in: 0.8, price_out: 2.8, cache: 0.23, vendor: zhipu, note: 5折至9/10, types: [text_gen, image_understand]}
+    - {model: hy3, price_in: 1.0, price_out: 4.0, cache: 0.25, vendor: tencent, types: [text_understand, text_gen]}
+    - {model: deepseek-v4-flash, price_in: 1.5, price_out: 4.5, cache: 0.05, vendor: deepseek, note: 空闲价，高峰3/9, types: [code_gen, data_analysis, text_understand]}
+    - {model: minimax-m2.1, price_in: 2.1, price_out: 8.4, cache: 0.21, vendor: minimax, types: [text_understand]}
+    - {model: minimax-m3, price_in: 2.1, price_out: 8.4, cache: 0.42, vendor: minimax, types: [text_understand]}
+    - {model: doubao-2.1-turbo, price_in: 3.0, price_out: 15.0, cache: 0.6, vendor: doubao, types: [code_gen, text_gen]}
+    - {model: deepseek-v4-pro, price_in: 4.5, price_out: 13.5, cache: 0.15, vendor: deepseek, note: 空闲价，高峰9/27, types: [code_audit]}
+    - {model: hy4-preview, price_in: 6.0, price_out: 18.0, cache: 0.3, vendor: tencent, types: [text_understand]}
+    - {model: kimi-k2.7-code, price_in: 6.5, price_out: 27.0, cache: 1.3, vendor: moonshot, types: [code_gen, code_audit]}
+    - {model: kimi-k2.6, price_in: 6.5, price_out: 27.0, cache: 1.1, vendor: moonshot, types: [image_understand, text_understand]}
+    - {model: glm-5.3, price_in: 8.0, price_out: 28.0, cache: 2.0, vendor: zhipu, types: [code_audit, text_understand]}
+    - {model: qwen3-max, price_in: 2.5, price_out: 10.0, cache: null, vendor: aliyun, note: 32K档, types: [text_gen]}
+    - {model: doubao-seed-2.1-pro, price_in: 6.0, price_out: 30.0, cache: 1.2, vendor: doubao, types: [code_gen, text_gen]}
+    - {model: qwen3.8-max, price_in: 12.0, price_out: 36.0, cache: null, vendor: aliyun, types: [code_audit, text_understand]}
+    - {model: kimi-k2.7-code-highspeed, price_in: 13.0, price_out: 54.0, cache: 2.6, vendor: moonshot, types: [code_gen]}
+    - {model: kimi-k3, price_in: 20.0, price_out: 100.0, cache: 2.0, vendor: moonshot, types: [code_audit]}
+    - {model: doubao-seedream-4-0, price_per_image: 0.3, vendor: ark, types: [image_gen]}
+
+seats_pool:
+  # 席位候选池（每席 ≥2，类型推荐初判待测评校准；同厂同审级预筛异厂）
+  l1_lead: {candidates: [deepseek-v4-flash, glm-5.3-flash, doubao-2.1-turbo], primary: deepseek-v4-flash, note: 1主2备（通用+文本/长文）}
+  l1_antagonist: {candidates: [hy3, minimax-m2.1, glm-5.3-flash], primary: hy3}
+  l1_judge: {candidates: [minimax-m3, doubao-2.1-turbo], primary: minimax-m3}
+  l2_lead: {candidates: [doubao-2.1-turbo, glm-5.3-flash], primary: doubao-2.1-turbo}
+  l2_antagonist: {candidates: [deepseek-v4-pro, kimi-k2.6], primary: deepseek-v4-pro}
+  l2_judge: {candidates: [kimi-k2.7-code, minimax-m3], primary: kimi-k2.7-code}
+  l3_lead: {candidates: [glm-5.3, kimi-k2.7-code], primary: glm-5.3}
+  l3_antagonist: {candidates: [qwen3.8-max, glm-5.3], primary: qwen3.8-max}
+  l3_judge: {candidates: [kimi-k3, qwen3.8-max], primary: kimi-k3}
+  vision_read: {candidates: [glm-5.3-flash, kimi-k2.6], primary: glm-5.3-flash}
+  image_gen: {candidates: [doubao-seedream-4-0], primary: doubao-seedream-4-0}
+
 
 defaults:
   timeout_sec: 180            # 外部 CLI 单次调用超时
