@@ -5,11 +5,11 @@
  "prompt_file": "prompt.txt",
  "results": [
   {
-   "model": "kimi-k2.6",
-   "seconds": 321,
-   "in_tokens": 344,
-   "out_tokens": 15390,
-   "reasoning_tokens": 15262
+   "model": "MiniMax-M2.1",
+   "seconds": 5,
+   "in_tokens": 372,
+   "out_tokens": 358,
+   "reasoning_tokens": 0
   }
  ]
 }

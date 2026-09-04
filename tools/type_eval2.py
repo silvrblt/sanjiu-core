@@ -27,10 +27,14 @@ MODELS = {
     "glm-5.3": ("glm-5.3", "GLM_API_KEY", "https://open.bigmodel.cn/api/paas/v4/chat/completions"),
     "qwen3.8-max": ("qwen3.8-max", "QWEN_API_KEY", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"),
 }
-# 候选层抽测（价格核验 v3 全 ✓ verbatim；API ID 同厂商官方命名，404 则探明记录不硬猜）
+# 候选层抽测（价格核验 v3 全 ✓ verbatim；API ID 2026-09-04 实测探通：hy4-preview 短名、
+# doubao-seed-2-1-pro-260628、MiniMax-M2.1；hunyuan-hy4-preview 全名 404 不用）
 CANDIDATES = {
     "qwen3-max": ("qwen3-max", "QWEN_API_KEY", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"),
     "kimi-k2.6": ("kimi-k2.6", "MOONSHOT_API_KEY", "https://api.moonshot.cn/v1/chat/completions"),
+    "hy4-preview": ("hy4-preview", "HUNYUAN_API_KEY", "https://tokenhub.tencentmaas.com/v1/chat/completions"),
+    "doubao-seed-2-1-pro-260628": ("doubao-seed-2-1-pro-260628", "ARK_API_KEY", "https://ark.cn-beijing.volces.com/api/v3/chat/completions"),
+    "MiniMax-M2.1": ("MiniMax-M2.1", "MINIMAX_API_KEY", "https://api.minimax.chat/v1/text/chatcompletion_v2"),
 }
 
 BENCH = [

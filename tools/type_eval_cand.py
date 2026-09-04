@@ -16,6 +16,9 @@ SPOTS = {
     # (候选 API ID, 任务类型, 题面来源任务)
     "qwen3-max": ("text_gen", "text_gen"),
     "kimi-k2.6": ("text_understand", "text_understand"),
+    "hy4-preview": ("text_understand", "text_understand"),
+    "MiniMax-M2.1": ("text_understand", "text_understand"),
+    "doubao-seed-2-1-pro-260628": ("code_gen_hard", "code_gen_hard"),
 }
 
 

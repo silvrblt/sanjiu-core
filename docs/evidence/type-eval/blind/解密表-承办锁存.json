@@ -1,0 +1,49 @@
+{
+ "text_gen": {
+  "产出-G": "deepseek-v4-flash",
+  "产出-F": "deepseek-v4-pro",
+  "产出-B": "doubao-seed-2-1-turbo-260628",
+  "产出-H": "glm-5.3",
+  "产出-A": "hy3",
+  "产出-D": "kimi-k2.7-code",
+  "产出-C": "minimax-m3",
+  "产出-E": "qwen3.8-max"
+ },
+ "ui_design_visual": {
+  "渲染-C": "deepseek-v4-flash",
+  "渲染-F": "deepseek-v4-pro",
+  "渲染-H": "doubao-seed-2-1-turbo-260628",
+  "渲染-E": "glm-5.3",
+  "渲染-D": "hy3",
+  "渲染-B": "kimi-k2.7-code",
+  "渲染-A": "minimax-m3",
+  "渲染-G": "qwen3.8-max"
+ },
+ "text_understand": {
+  "产出-F": "deepseek-v4-flash",
+  "产出-E": "deepseek-v4-pro",
+  "产出-D": "doubao-seed-2-1-turbo-260628",
+  "产出-A": "glm-5.3",
+  "产出-C": "hy3",
+  "产出-H": "kimi-k2.7-code",
+  "产出-G": "minimax-m3",
+  "产出-B": "qwen3.8-max"
+ },
+ "code_gen_hard": {
+  "产出-C": "deepseek-v4-flash",
+  "产出-E": "doubao-seed-2-1-turbo-260628",
+  "产出-D": "hy3",
+  "产出-A": "kimi-k2.7-code",
+  "产出-B": "minimax-m3"
+ },
+ "code_gen": {
+  "产出-B": "deepseek-v4-flash",
+  "产出-F": "deepseek-v4-pro",
+  "产出-E": "doubao-seed-2-1-turbo-260628",
+  "产出-A": "glm-5.3",
+  "产出-D": "hy3",
+  "产出-G": "kimi-k2.7-code",
+  "产出-H": "minimax-m3",
+  "产出-C": "qwen3.8-max"
+ }
+}

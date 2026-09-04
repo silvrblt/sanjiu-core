@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>经营看板 · 律所经营中后台</title>
+<style>
+  :root{
+    --ink:#101A2B; --ink2:#0B1424; --gold:#C29933; --gold2:#E3B54A; --gold-deep:#A57C22;
+    --paper:#F4F2EA; --card:#FFFFFF; --line:#E4DFD1; --line2:#D9D2BE;
+    --text:#242938; --mut:#7C8090; --faint:#A6A291;
+    --run:#8A6A14; --run-bg:rgba(194,153,51,.13);
+    --wait:#B26118; --wait-bg:rgba(208,124,46,.13);
+    --done:#256A4C; --done-bg:rgba(46,125,91,.13);
+    --file:#4A5878; --file-bg:rgba(85,98,122,.13);
+    --serif:Georgia,'Nimbus Roman','Songti SC','STSong','SimSun',serif;
+    --sans:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei','Segoe UI',sans-serif;
+    --mono:'SF Mono',ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  ::selection{background:var(--gold);color:#fff}
+  html,body{height:100%}
+  body{display:flex;font-family:var(--sans);color:var(--text);background:var(--paper);
+    background-image:radial-gradient(circle at 1px 1px, rgba(16,26,43,.05) 1px, transparent 1.6px);
+    background-size:22px 22px;font-size:14px;line-height:1.5}
+  a{text-decoration:none;color:inherit}
+  button{font-family:inherit;cursor:pointer}
+
+  /* ============ 侧栏 ============ */
+  .side{width:236px;flex:0 0 236px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+    background:linear-gradient(188deg,#17253E 0%,#101A2E 46%,#0B1424 100%);color:#AAB3C7;overflow:hidden}
+  .side::before{content:'';position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(420px 200px at 110% -8%, rgba(227,181,74,.16), transparent 70%)}
+  .brand{display:flex;align-items:center;gap:12px;padding:22px 20px 20px;position:relative}
+  .emblem{width:42px;height:42px;flex:0 0 42px;border-radius:10px;display:grid;place-items:center;
+    background:linear-gradient(140deg,#E9C25E,#B0821F);box-shadow:0 4px 14px -4px rgba(201,162,39,.55), inset 0 1px 0 rgba(255,255,255,.35)}
+  .emblem svg{width:24px;height:24px;stroke:#1A1508;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .brand b{display:block;font-size:15.5px;color:#F3EFE2;letter-spacing:1px;font-weight:700}
+  .brand small{display:block;font-size:9.5px;letter-spacing:3px;color:#6F7A96;margin-top:2px;text-transform:uppercase}
+  .side nav{padding:8px 12px;flex:1;position:relative}
+  .side .nav-label{font-size:10.5px;letter-spacing:3px;color:#5C6784;padding:14px 10px 8px}
+  .nav{display:flex;align-items:center;gap:11px;padding:11px 13px;margin:3px 0;border-radius:9px;position:relative;
+    font-size:13.5px;color:#9AA4BC;transition:background .22s,color .22s,transform .22s}
+  .nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:0 0 18px;transition:transform .25s}
+  .nav:hover{background:rgba(255,255,255,.055);color:#E9EBF2;transform:translateX(2px)}
+  .nav:hover svg{transform:scale(1.08)}
+  .nav.active{color:#F5EDD6;background:linear-gradient(90deg,rgba(194,153,51,.20),rgba(194,153,51,.04))}
+  .nav.active::before{content:'';position:absolute;left:-12px;top:8px;bottom:8px;width:3.5px;border-radius:0 3px 3px 0;
+    background:linear-gradient(180deg,var(--gold2),var(--gold-deep));box-shadow:0 0 10px rgba(227,181,74,.6)}
+  .nav .badge{margin-left:auto;font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:99px;
+    background:rgba(227,181,74,.16);color:var(--gold2);border:1px solid rgba(227,181,74,.35);font-family:var(--mono)}
+  .nav .arrow{margin-left:auto;opacity:0;transform:translateX(-4px);transition:.25s;color:var(--gold2)}
+  .nav.active .arrow{opacity:1;transform:none}
+  .side-foot{padding:14px;border-top:1px solid rgba(255,255,255,.07);position:relative}
+  .user{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;transition:background .2s}
+  .user:hover{background:rgba(255,255,255,.05)}
+  .avatar{width:36px;height:36px;border-radius:50%;flex:0 0 36px;display:grid;place-items:center;position:relative;
+    background:linear-gradient(140deg,#31456E,#1B2A47);color:#E9D9A6;font-weight:700;font-size:14px;border:1px solid rgba(227,181,74,.4)}
+  .avatar i{position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:#4CC38A;border:2px solid #0E1728;font-style:normal}
+  .user b{font-size:13px;color:#E7E9F0;font-weight:600;display:block}
+  .user small{font-size:11px;color:#6E7891}
+
+  /* ============ 主区域 ============ */
+  main{flex:1;min-width:0;padding:26px 30px 44px;max-width:1520px}
+  .top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  .top h1{font-family:var(--serif);font-size:28px;font-weight:800;letter-spacing:2px;color:#1B2233;position:relative;padding-left:17px;line-height:1.2}
+  .top h1::before{content:'';position:absolute;left:0;top:5px;bottom:5px;width:5px;border-radius:3px;
+    background:linear-gradient(180deg,var(--gold2),var(--gold-deep))}
+  .top .sub{font-size:12.5px;color:var(--mut);margin-top:7px;padding-left:17px}
+  .top-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+    border-radius:9px;padding:7px 12px;font-size:12.5px;color:#3A4054;box-shadow:0 1px 2px rgba(20,24,36,.04)}
+  .chip svg{width:14px;height:14px;stroke:var(--gold-deep);fill:none;stroke-width:1.8;stroke-linecap:round}
+  .chip b{font-family:var(--mono);font-weight:600}
+  .sync i{width:7px;height:7px;border-radius:50%;background:#3FA97C;display:inline-block;animation:pulse 1.8s ease-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,169,124,.5)}70%{box-shadow:0 0 0 7px rgba(63,169,124,0)}100%{box-shadow:0 0 0 0 rgba(63,169,124,0)}}
+  .seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px;box-shadow:0 1px 2px rgba(20,24,36,.04)}
+  .seg button{border:0;background:transparent;padding:5px 13px;font-size:12.5px;color:var(--mut);border-radius:7px;transition:.22s}
+  .seg button:hover{color:#2A3046}
+  .seg button.on{background:var(--ink);color:#F0E6C8;box-shadow:0 2px 6px rgba(16,26,43,.3)}
+
+  /* ============ KPI ============ */
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:18px 18px 16px;position:relative;overflow:hidden;
+    box-shadow:0 1px 2px rgba(16,20,30,.04),0 10px 26px -22px rgba(16,20,30,.25);
+    transition:transform .25s,box-shadow .25s,border-color .25s}
+  .kpi::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--gold2),var(--gold-deep));
+    opacity:0;transition:opacity .25s}
+  .kpi:hover{transform:translateY(-3px);box-shadow:0 2px 3px rgba(16,20,30,.05),0 18px 34px -20px rgba(16,20,30,.3);border-color:var(--line2)}
+  .kpi:hover::after{opacity:1}
+  .kpi .k-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .kpi .k-label{font-size:12.5px;color:var(--mut);letter-spacing:1px;font-weight:600}
+  .kpi .k-ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--run-bg)}
+  .kpi .k-ico svg{width:16px;height:16px;stroke:var(--gold-deep);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .kpi .k-val{font-family:var(--serif);font-size:31px;font-weight:800;color:#191F2E;letter-spacing:.5px;line-height:1.05;font-variant-numeric:tabular-nums}
+  .kpi .k-val .pre,.kpi .k-val .suf{font-size:16px;font-weight:600;color:#5A6072;margin:0 2px}
+  .kpi .k-meta{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:12px;color:var(--mut)}
+  .delta{display:inline-flex;align-items:center;gap:2px;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px;font-family:var(--mono)}
+  .delta.up{color:var(--done);background:var(--done-bg)}
+  .delta.up::before{content:'▲';font-size:8.5px}
+  .spark{display:flex;align-items:flex-end;gap:3px;height:34px;margin-top:13px}
+  .spark i{flex:1;background:#DCD4BC;border-radius:2px 2px 0 0;transform:scaleY(0);transform-origin:bottom;
+    transition:transform .7s cubic-bezier(.22,.9,.3,1)}
+  .spark i:last-child{background:linear-gradient(180deg,var(--gold2),var(--gold-deep))}
+  .kpi:hover .spark i:last-child{filter:brightness(1.12)}
+  .in .spark i{transform:scaleY(1)}
+  .track{height:7px;border-radius:99px;background:#EDE8D9;margin-top:16px;overflow:hidden}
+  .track b{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--gold2),var(--gold-deep));
+    transition:width 1.1s cubic-bezier(.25,.9,.3,1) .2s}
+  .k-note{font-size:11px;color:var(--faint);margin-top:6px}
+
+  /* ============ 图表区 ============ */
+  .charts{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:11px;
+    box-shadow:0 1px 2px rgba(16,20,30,.04),0 10px 26px -22px rgba(16,20,30,.25)}
+  .card-h{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:17px 20px 4px;flex-wrap:wrap}
+  .card-h h2{font-family:var(--serif);font-size:17px;font-weight:800;color:#1B2233;letter-spacing:1px}
+  .card-h p{font-size:11.5px;color:var(--mut);margin-top:3px}
+  .mini-legend{display:flex;gap:14px;font-size:11.5px;color:var(--mut);align-items:center;padding-top:4px}
+  .mini-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  .bar-wrap{position:relative;padding:8px 14px 12px}
+  #barChart svg{width:100%;height:auto;display:block}
+  .bar{fill:#3D5A8F;transform-box:fill-box;transform-origin:50% 100%;transform:scaleY(.02);cursor:pointer;
+    transition:transform .8s cubic-bezier(.22,.9,.26,1),fill .2s}
+  .bar.on{transform:scaleY(1)}
+  .bar.hot,.bar:hover{fill:var(--gold2)}
+  .bar.now{fill:var(--gold)}
+  .grid-l{stroke:#E9E3D3;stroke-width:1}
+  .axis-t{font-size:10px;fill:var(--faint);font-family:var(--mono)}
+  .month-t{font-size:10.5px;fill:#8A8FA0}
+  .avg-l{stroke:var(--gold-deep);stroke-width:1;stroke-dasharray:4 4;opacity:0;transition:opacity .6s .9s}
+  .avg-t{font-size:10px;fill:var(--gold-deep);font-family:var(--mono);opacity:0;transition:opacity .6s .9s}
+  .on ~ .avgvis,.avgvis.show .avg-l,.avgvis.show .avg-t{opacity:1}
+  .tip{position:absolute;pointer-events:none;background:#171E2E;color:#F2E9CF;font-size:11.5px;padding:6px 10px;border-radius:7px;
+    white-space:nowrap;opacity:0;transform:translate(-50%,-120%);transition:opacity .18s;font-family:var(--mono);
+    box-shadow:0 6px 18px -6px rgba(16,20,30,.5);z-index:5}
+  .tip::after{content:'';position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);border:4px solid transparent;border-top-color:#171E2E}
+  .tip.show{opacity:1}
+
+  .donut-wrap{display:flex;align-items:center;gap:8px;padding:10px 18px 20px;flex-wrap:wrap}
+  .donut-box{position:relative;width:186px;flex:0 0 186px;margin:0 auto}
+  .donut-box svg{width:100%;height:auto;display:block}
+  .seg-c{transition:stroke-dasharray 1s cubic-bezier(.25,.9,.3,1),stroke-width .25s,opacity .25s;cursor:pointer}
+  .d-num{font-family:var(--serif);font-size:30px;font-weight:800;fill:#1B2233}
+  .d-lab{font-size:10.5px;fill:var(--mut);letter-spacing:2px}
+  .legend{flex:1;min-width:170px;display:flex;flex-direction:column;gap:6px;padding-left:6px}
+  .legend li{list-style:none;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;transition:background .2s,transform .2s;cursor:default}
+  .legend li:hover{background:#F7F4E9;transform:translateX(3px)}
+  .legend .sw{width:11px;height:11px;border-radius:3.5px;flex:0 0 11px}
+  .legend .nm{font-size:13px;color:#3A4054;font-weight:600}
+  .legend .ct{margin-left:auto;font-family:var(--serif);font-weight:800;font-size:15.5px;color:#1B2233;font-variant-numeric:tabular-nums}
+  .legend .pc{font-family:var(--mono);font-size:11px;color:var(--mut);width:46px;text-align:right}
+
+  /* ============ 表格 ============ */
+  .table-card{overflow:hidden}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:860px}
+  thead th{font-size:11.5px;font-weight:600;letter-spacing:1.5px;color:var(--mut);text-align:left;
+    padding:12px 16px;border-bottom:1px solid var(--line);background:#FBFAF4;white-space:nowrap}
+  tbody td{padding:13px 16px;border-bottom:1px solid #EFEBDE;font-size:13px;vertical-align:middle}
+  tbody tr{opacity:0;animation:rowIn .5s ease forwards;animation-delay:calc(var(--i)*70ms);transition:background .18s}
+  tbody tr:hover{background:#FAF7EC}
+  tbody tr:last-child td{border-bottom:0}
+  @keyframes rowIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .case-no{font-family:var(--mono);font-size:12px;color:#4A5068;white-space:nowrap}
+  .cust{font-weight:600;color:#232939}
+  .type{display:inline-block;font-size:12px;padding:2px 9px;border-radius:5px;background:#F1EDDF;color:#5A5F72;border-left:3px solid var(--tc,#B9B29A)}
+  .lawyer{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+  .lawyer i{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11.5px;font-weight:700;
+    background:linear-gradient(140deg,#31456E,#1B2A47);color:#E9D9A6;border:1px solid rgba(194,153,51,.35)}
+  .amt{font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap;color:#232939;font-variant-numeric:tabular-nums}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+  .pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+  .pill em{font-style:normal;font-size:10.5px;opacity:.7;font-weight:500}
+  .p-run{color:var(--run);background:var(--run-bg)}
+  .p-wait{color:var(--wait);background:var(--wait-bg)}
+  .p-done{color:var(--done);background:var(--done-bg)}
+  .p-file{color:var(--file);background:var(--file-bg)}
+  .tbl-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 20px;border-top:1px solid var(--line);
+    font-size:12px;color:var(--mut);flex-wrap:wrap;background:#FBFAF4}
+  .pager{display:flex;gap:6px}
+  .pager button{width:28px;height:28px;border:1px solid var(--line);background:#fff;border-radius:7px;font-size:12px;color:#4A5068;transition:.2s}
+  .pager button:hover{border-color:var(--gold);color:var(--gold-deep)}
+  .pager button.cur{background:var(--ink);border-color:var(--ink);color:#F0E6C8}
+
+  /* 进场动画 */
+  .reveal{opacity:0;animation:pop .55s cubic-bezier(.22,.9,.3,1) forwards}
+  .d1{animation-delay:.05s}.d2{animation-delay:.13s}.d3{animation-delay:.21s}.d4{animation-delay:.29s}
+  .d5{animation-delay:.34s}.d6{animation-delay:.42s}.d7{animation-delay:.5s}
+  @keyframes pop{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  @media (max-width:1200px){
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .charts{grid-template-columns:1fr}
+  }
+  @media (max-width:1020px){
+    .side{width:70px;flex-basis:70px}
+    .brand b,.brand small,.nav span,.nav .badge,.nav .arrow,.user b,.user small,.side .nav-label{display:none}
+    .brand{justify-content:center;padding:20px 0}
+    .nav{justify-content:center;padding:12px 0}
+    .user{justify-content:center}
+  }
+  @media (max-width:640px){
+    main{padding:18px 14px 32px}
+    .kpis{grid-template-columns:1fr}
+    .top h1{font-size:23px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none!important;transition:none!important}
+    .reveal,tbody tr{opacity:1}
+    .bar{transform:scaleY(1)}
+    .spark i{transform:scaleY(1)}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= 侧栏 ================= -->
+<aside class="side">
+  <div class="brand">
+    <span class="emblem" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 3v18M8 21h8M4 7h16M6.5 7l-3 6.2a3.3 3.3 0 0 0 6 0L6.5 7zM17.5 7l-3 6.2a3.3 3.3 0 0 0 6 0L17.5 7z"/></svg>
+    </span>
+    <div><b>律所经营中后台</b><small>Legal Ops Console</small></div>
+  </div>
+  <nav>
+    <div class="nav-label">业务模块</div>
+    <a class="nav active" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg><span>经营看板</span><em class="arrow">›</em></a>
+    <a class="nav" href="#"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 11h18"/></svg><span>案件管理</span><b class="badge">186</b></a>
+    <a class="nav" href="#"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.2 3.4-5 6.5-5s5.7 1.8 6.5 5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M17.8 15.4c2 .7 3.3 2.2 3.7 4.6"/></svg><span>客户管理</span></a>
+    <a class="nav" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 8l3.5 4.5L15.5 8M12 12.5V17M9 14h6"/></svg><span>财务管理</span></a>
+    <a class="nav" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.9 1.9M16.6 16.6l1.9 1.9M18.5 5.5l-1.9 1.9M7.4 16.6l-1.9 1.9"/></svg><span>系统设置</span></a>
+  </nav>
+  <div class="side-foot">
+    <div class="user">
+      <span class="avatar">王<i></i></span>
+      <div><b>王慧敏</b><small>运营总监 · 在线</small></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ================= 主区域 ================= -->
+<main>
+  <header class="top reveal d1">
+    <div>
+      <h1>经营看板</h1>
+      <p class="sub" id="todayLine">加载中…</p>
+    </div>
+    <div class="top-right">
+      <span class="chip sync"><i></i>数据已同步 <b id="syncTime">--:--</b></span>
+      <span class="chip"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg><b id="clock">--:--:--</b></span>
+      <div class="seg" role="tablist" aria-label="统计周期">
+        <button class="on" type="button">本季</button>
+        <button type="button">本年</button>
+        <button type="button">滚动12月</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- KPI -->
+  <section class="kpis">
+    <article class="kpi reveal d1">
+      <div class="k-head"><span class="k-label">本季创收</span>
+        <span class="k-ico"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 3 7-8"/><path d="M15 7h4v4"/></svg></span></div>
+      <div class="k-val"><span class="pre">¥</span><span data-count="1286400" data-dec="0">0</span></div>
+      <div class="k-meta"><span class="delta up">12.6%</span>环比上季度</div>
+      <div class="spark" id="spark1"></div>
+    </article>
+    <article class="kpi reveal d2">
+      <div class="k-head"><span class="k-label">在办案件</span>
+        <span class="k-ico"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span></div>
+      <div class="k-val"><span data-count="186" data-dec="0">0</span><span class="suf">件</span></div>
+      <div class="k-meta"><span class="delta up">23 件</span>本月新收 · 开庭 12 场</div>
+      <div class="track"><b data-w="62%"></b></div>
+      <p class="k-note">本季排期负载 62%</p>
+    </article>
+    <article class="kpi reveal d3">
+      <div class="k-head"><span class="k-label">客户总数</span>
+        <span class="k-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1-3.6 4-5.5 7.5-5.5s6.5 1.9 7.5 5.5"/></svg></span></div>
+      <div class="k-val"><span data-count="2340" data-dec="0">0</span><span class="suf">位</span></div>
+      <div class="k-meta"><span class="delta up">126 位</span>本季新增签约</div>
+      <div class="track"><b data-w="78%"></b></div>
+      <p class="k-note">续约意向率 78%</p>
+    </article>
+    <article class="kpi reveal d4">
+      <div class="k-head"><span class="k-label">回款率</span>
+        <span class="k-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 8l3.5 4.5L15.5 8M12 12.5V17"/></svg></span></div>
+      <div class="k-val"><span data-count="87.3" data-dec="1">0</span><span class="suf">%</span></div>
+      <div class="k-meta"><span class="delta up">3.1%</span>环比上季度</div>
+      <div class="track"><b data-w="87.3%"></b></div>
+      <p class="k-note">应收余额 ¥187.2 万 · 逾期 4.1%</p>
+    </article>
+  </section>
+
+  <!-- 图表 -->
+  <section class="charts">
+    <article class="card reveal d5">
+      <div class="card-h">
+        <div><h2>近 12 个月创收趋势</h2><p>单位：万元 · 全年累计 ¥1,137.2 万</p></div>
+        <div class="mini-legend">
+          <span><i style="background:#3D5A8F"></i>月度创收</span>
+          <span><i style="background:var(--gold)"></i>当前月</span>
+          <span style="font-family:var(--mono);color:var(--gold-deep)">- - 均值 47.7</span>
+        </div>
+      </div>
+      <div class="bar-wrap">
+        <div id="barChart"></div>
+        <div class="tip" id="barTip"></div>
+      </div>
+    </article>
+
+    <article class="card reveal d6">
+      <div class="card-h">
+        <div><h2>案件状态分布</h2><p>全所历史案件 · 实时统计</p></div>
+      </div>
+      <div class="donut-wrap">
+        <div class="donut-box">
+          <svg viewBox="0 0 180 180" id="donutSvg" role="img" aria-label="案件状态分布环形图">
+            <circle cx="90" cy="90" r="70" fill="none" stroke="#EFEADD" stroke-width="24"/>
+            <g id="segs" transform="rotate(-90 90 90)"></g>
+            <text class="d-num" x="90" y="88" text-anchor="middle">889</text>
+            <text class="d-lab" x="90" y="108" text-anchor="middle">案件总数</text>
+          </svg>
+        </div>
+        <ul class="legend" id="legend"></ul>
+      </div>
+    </article>
+  </section>
+
+  <!-- 最近案件 -->
+  <section class="card table-card reveal d7">
+    <div class="card-h">
+      <div><h2>最近案件</h2><p>按立案 / 建档时间倒序 · 共 889 条记录</p></div>
+      <span class="chip" style="font-size:12px"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>最近更新 2 分钟前</span>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th>案号</th><th>客户</th><th>案件类型</th><th>承办律师</th><th style="text-align:right">标的额</th><th>状态</th></tr>
+        </thead>
+        <tbody>
+          <tr style="--i:0"><td class="case-no">（2025）沪0115民初8321号</td><td class="cust">华信置业集团</td><td><span class="type" style="--tc:#C29933">合同纠纷</span></td><td><span class="lawyer"><i>陈</i>陈立群</span></td><td class="amt">¥1,280,000</td><td><span class="pill p-run">进行中</span></td></tr>
+          <tr style="--i:1"><td class="case-no">（2025）京0105民初4407号</td><td class="cust">中科云图科技</td><td><span class="type" style="--tc:#3D5A8F">知识产权</span></td><td><span class="lawyer"><i>林</i>林晚晴</span></td><td class="amt">¥3,560,000</td><td><span class="pill p-run">进行中</span></td></tr>
+          <tr style="--i:2"><td class="case-no">（2025）粤0304民初2216号</td><td class="cust">恒远供应链</td><td><span class="type" style="--tc:#B26118">股权纠纷</span></td><td><span class="lawyer"><i>沈</i>沈君浩</span></td><td class="amt">¥5,120,000</td><td><span class="pill p-wait">待立案</span></td></tr>
+          <tr style="--i:3"><td class="case-no">（2024）沪01民终9902号</td><td class="cust">蓝湾资本</td><td><span class="type" style="--tc:#256A4C">证券合规</span></td><td><span class="lawyer"><i>顾</i>顾承安</span></td><td class="amt">¥8,900,000</td><td><span class="pill p-done">已结案</span></td></tr>
+          <tr style="--i:4"><td class="case-no">（2025）浙0106民初6633号</td><td class="cust">之江智造</td><td><span class="type" style="--tc:#4A5878">劳动争议</span></td><td><span class="lawyer"><i>苏</i>苏砚青</span></td><td class="amt">¥460,000</td><td><span class="pill p-run">进行中</span></td></tr>
+          <tr style="--i:5"><td class="case-no">（2024）京03民终1187号</td><td class="cust">北辰传媒</td><td><span class="type" style="--tc:#8A6A14">名誉权</span></td><td><span class="lawyer"><i>陈</i>陈立群</span></td><td class="amt">¥750,000</td><td><span class="pill p-done">已结案</span></td></tr>
+          <tr style="--i:6"><td class="case-no">（2025）川0107民初3054号</td><td class="cust">天府文旅集团</td><td><span class="type" style="--tc:#C29933">建设工程</span></td><td><span class="lawyer"><i>何</i>何叙</span></td><td class="amt">¥12,400,000</td><td><span class="pill p-run">进行中</span></td></tr>
+          <tr style="--i:7"><td class="case-no">（2024）沪0112民初5518号</td><td class="cust">明州医疗器械</td><td><span class="type" style="--tc:#C29933">合同纠纷</span></td><td><span class="lawyer"><i>林</i>林晚晴</span></td><td class="amt">¥980,000</td><td><span class="pill p-file">已归档</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="tbl-foot">
+      <span>显示第 1–8 条 · 在办 <b style="color:var(--run)">186</b> 件 · 标的额合计 <b style="font-family:var(--mono)">¥33,510,000</b></span>
+      <div class="pager">
+        <button type="button" aria-label="上一页">‹</button>
+        <button type="button" class="cur">1</button>
+        <button type="button">2</button>
+        <button type="button">3</button>
+        <button type="button" aria-label="下一页">›</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var pad = function(n){ return (n<10?'0':'')+n; };
+
+  /* ---- 日期 / 时钟 ---- */
+  var now = new Date();
+  var wk = '日一二三四五六'[now.getDay()];
+  document.getElementById('todayLine').textContent =
+    now.getFullYear()+'年'+(now.getMonth()+1)+'月'+now.getDate()+'日 · 星期'+wk+' · 数据截至 '+pad(now.getHours())+':'+pad(now.getMinutes());
+  function tick(){
+    var t = new Date();
+    document.getElementById('clock').textContent = pad(t.getHours())+':'+pad(t.getMinutes())+':'+pad(t.getSeconds());
+    document.getElementById('syncTime').textContent = pad(t.getHours())+':'+pad(t.getMinutes());
+  }
+  tick(); setInterval(tick, 1000);
+
+  /* ---- 侧栏 & 周期切换 ---- */
+  document.querySelectorAll('.nav').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      document.querySelectorAll('.nav').forEach(function(x){ x.classList.remove('active'); });
+      a.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.seg button').forEach(function(b){
+    b.addEventListener('click', function(){
+      b.parentNode.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+    });
+  });
+  document.querySelectorAll('.pager button').forEach(function(b){
+    b.addEventListener('click', function(){
+      if(!b.textContent.match(/^\d+$/)) return;
+      b.parentNode.querySelectorAll('button').forEach(function(x){ x.classList.remove('cur'); });
+      b.classList.add('cur');
+    });
+  });
+
+  /* ---- KPI 数字滚动 ---- */
+  function fmt(v, dec){ return v.toLocaleString('zh-CN',{minimumFractionDigits:dec, maximumFractionDigits:dec}); }
+  document.querySelectorAll('[data-count]').forEach(function(el){
+    var target = parseFloat(el.dataset.count), dec = +el.dataset.dec || 0;
+    if(reduced){ el.textContent = fmt(target, dec); return; }
+    var t0 = null, dur = 1100;
+    function step(ts){
+      if(!t0) t0 = ts;
+      var p = Math.min((ts-t0)/dur, 1), e = 1 - Math.pow(1-p, 3);
+      el.textContent = fmt(target*e, dec);
+      if(p<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+  /* 进度条 */
+  setTimeout(function(){
+    document.querySelectorAll('.track b').forEach(function(b){ b.style.width = b.dataset.w; });
+  }, reduced ? 0 : 300);
+  /* 迷你火花条 */
+  var sparkVals = [42,38,50,46,55,49,58,53,62,57,66,72];
+  var sp = document.getElementById('spark1'), mx = Math.max.apply(null, sparkVals);
+  sparkVals.forEach(function(v, i){
+    var bar = document.createElement('i');
+    bar.style.height = Math.round(v/mx*100)+'%';
+    bar.style.transitionDelay = (350 + i*45)+'ms';
+    sp.appendChild(bar);
+  });
+  setTimeout(function(){ sp.parentNode.classList.add('in'); }, reduced ? 0 : 120);
+
+  /* ---- 12 个月创收柱状图 ---- */
+  var vals = [32.5,28.4,36.8,41.2,38.6,45.9,42.3,39.7,48.5,40.2,43.8,44.6]; // 万元，Q4 合计 = 128.6
+  var W=760,H=252,L=46,R=12,T=24,B=34, plotW=W-L-R, plotH=H-T-B, MAX=60;
+  var y = function(v){ return T + plotH*(1 - v/MAX); };
+  var s = '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="近12个月创收趋势柱状图">';
+  [0,15,30,45,60].forEach(function(tv){
+    s += '<line class="grid-l" x1="'+L+'" y1="'+y(tv)+'" x2="'+(W-R)+'" y2="'+y(tv)+'"/>'
+       + '<text class="axis-t" x="'+(L-8)+'" y="'+(y(tv)+3.5)+'" text-anchor="end">'+tv+'</text>';
+  });
+  var avg = vals.reduce(function(a,b){return a+b;},0)/vals.length, ay = y(avg);
+  var slot = plotW/12, bw = 26;
+  vals.forEach(function(v,i){
+    var x = L + slot*i + (slot-bw)/2, h = plotH*v/MAX;
+    s += '<rect class="bar'+(i===11?' now':'')+'" data-v="'+v+'" data-m="'+(i+1)+'" x="'+x.toFixed(1)+'" y="'+y(v).toFixed(1)
+       + '" width="'+bw+'" height="'+h.toFixed(1)+'" rx="3" style="transition-delay:'+(i*55)+'ms"/>';
+    s += '<text class="month-t" x="'+(L+slot*i+slot/2)+'" y="'+(H-12)+'" text-anchor="middle">'+(i+1)+'月</text>';
+  });
+  s += '<g class="avgvis"><line class="avg-l" x1="'+L+'" y1="'+ay+'" x2="'+(W-R)+'" y2="'+ay+'"/>'
+     + '<text class="avg-t" x="'+(W-R)+'" y="'+(ay-6)+'" text-anchor="end">均值 '+avg.toFixed(1)+'</text></g></svg>';
+  var wrap = document.getElementById('barChart');
+  wrap.innerHTML = s;
+  var bars = wrap.querySelectorAll('.bar');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    bars.forEach(function(b){ b.classList.add('on'); });
+    wrap.querySelector('.avgvis').classList.add('show');
+  });});
+  var tip = document.getElementById('barTip');
+  bars.forEach(function(b){
+    b.addEventListener('mouseenter', function(){
+      tip.textContent = b.dataset.m+'月 · ¥'+(b.dataset.v*10000).toLocaleString('zh-CN');
+      var br = b.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+      tip.style.left = (br.left - wr.left + br.width/2)+'px';
+      tip.style.top  = (br.top - wr.top)+'px';
+      tip.classList.add('show');
+      b.classList.add('hot');
+    });
+    b.addEventListener('mouseleave', function(){ tip.classList.remove('show'); b.classList.remove('hot'); });
+  });
+
+  /* ---- 案件状态环形图 ---- */
+  var data = [['进行中',186,'#C29933'],['已结案',268,'#2E7D5B'],['已归档',392,'#55627A'],['待立案',43,'#D07C2E']];
+  var total = data.reduce(function(a,d){return a+d[1];},0);
+  var r=70, C = 2*Math.PI*r, GAP = 3, NS='http://www.w3.org/2000/svg';
+  var g = document.getElementById('segs'), legend = document.getElementById('legend'), circles=[], acc=0;
+  data.forEach(function(d, idx){
+    var len = C*d[1]/total - GAP;
+    var c = document.createElementNS(NS,'circle');
+    c.setAttribute('cx',90); c.setAttribute('cy',90); c.setAttribute('r',r);
+    c.setAttribute('fill','none'); c.setAttribute('stroke',d[2]);
+    c.setAttribute('stroke-width',24); c.setAttribute('stroke-linecap','butt');
+    c.setAttribute('stroke-dasharray', reduced ? len+' '+(C-len) : '0 '+C);
+    c.setAttribute('stroke-dashoffset', -(acc + GAP/2));
+    c.setAttribute('class','seg-c');
+    c.style.transitionDelay = (idx*140)+'ms, 0ms, 0ms';
+    g.appendChild(c); circles.push(c);
+    acc += C*d[1]/total;
+    var li = document.createElement('li');
+    li.innerHTML = '<span class="sw" style="background:'+d[2]+'"></span><span class="nm">'+d[0]+'</span>'
+      + '<span class="ct">'+d[1]+'<small style="font-size:11px;color:var(--mut)"> 件</small></span>'
+      + '<span class="pc">'+(d[1]/total*100).toFixed(1)+'%</span>';
+    li.addEventListener('mouseenter', function(){
+      circles.forEach(function(cc,j){ cc.style.opacity = j===idx ? 1 : .3; cc.setAttribute('stroke-width', j===idx?30:24); });
+    });
+    li.addEventListener('mouseleave', function(){
+      circles.forEach(function(cc){ cc.style.opacity = 1; cc.setAttribute('stroke-width',24); });
+    });
+    legend.appendChild(li);
+  });
+  if(!reduced){
+    setTimeout(function(){
+      var a2=0;
+      circles.forEach(function(c, idx){
+        var len = C*data[idx][1]/total - GAP;
+        c.style.transitionDelay = '0ms, 0ms, 0ms';
+        c.setAttribute('stroke-dasharray', len+' '+(C-len));
+        a2 += C*data[idx][1]/total;
+      });
+    }, 350);
+  }
+})();
+</script>
+</body>
+</html>
