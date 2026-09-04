@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>经营看板 - 律所经营中后台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: #F4F2EA;
+    color: #101A2B;
+    min-height: 100vh;
+    display: flex;
+    font-size: 14px;
+  }
+  /* ============ 侧栏导航 ============ */
+  .sidebar {
+    width: 232px;
+    min-height: 100vh;
+    background: linear-gradient(188deg, #17253E 0%, #101A2E 46%, #0B1424 100%);
+    color: #9AA4BC;
+    position: relative;
+    flex-shrink: 0;
+    padding: 24px 0 24px 0;
+  }
+  .sidebar::after {
+    content: "";
+    position: absolute;
+    top: 0; right: 0;
+    width: 420px; height: 200px;
+    background: radial-gradient(420px 200px at 110% -8%, rgba(227,181,74,.16), transparent 70%);
+    pointer-events: none;
+  }
+  .brand {
+    padding: 0 22px 22px 22px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    margin-bottom: 18px;
+    position: relative;
+    z-index: 1;
+  }
+  .brand-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #F5EDD6;
+    letter-spacing: 1px;
+  }
+  .brand-sub {
+    font-size: 11px;
+    color: #5C6784;
+    margin-top: 4px;
+    letter-spacing: 2px;
+  }
+  .nav-group {
+    padding: 0 14px;
+    margin-bottom: 18px;
+    position: relative;
+    z-index: 1;
+  }
+  .nav-group-title {
+    font-size: 11px;
+    color: #5C6784;
+    letter-spacing: 3px;
+    padding: 0 8px 10px 8px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    padding: 11px 14px;
+    margin: 2px 0;
+    color: #9AA4BC;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: all .15s;
+  }
+  .nav-item:hover {
+    color: #E9EBF2;
+    background: rgba(255,255,255,.055);
+  }
+  .nav-item.active {
+    color: #F5EDD6;
+    background: linear-gradient(90deg, rgba(194,153,51,.20), rgba(194,153,51,.04));
+  }
+  .nav-item.active::before {
+    content: "";
+    position: absolute;
+    left: -14px; top: 8px; bottom: 8px;
+    width: 3.5px;
+    background: linear-gradient(180deg, #E3B54A, #A57C22);
+    border-radius: 3px;
+  }
+  .nav-icon {
+    width: 18px; height: 18px;
+    margin-right: 12px;
+    stroke-width: 1.7;
+    fill: none;
+    stroke: currentColor;
+    flex-shrink: 0;
+  }
+  .nav-badge {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 2px 8px;
+    background: rgba(227,181,74,.16);
+    color: #E3B54A;
+    border: 1px solid rgba(227,181,74,.35);
+    border-radius: 10px;
+  }
+
+  /* ============ 主区域 ============ */
+  .main {
+    flex: 1;
+    padding: 24px 30px 30px 30px;
+    overflow-x: auto;
+    min-width: 0;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #E4DFD1;
+    margin-bottom: 22px;
+  }
+  .page-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #101A2B;
+    letter-spacing: 1px;
+  }
+  .page-date {
+    font-size: 13px;
+    color: #6B6A4E;
+  }
+  .page-date strong {
+    color: #101A2B;
+    font-weight: 500;
+  }
+
+  /* ============ KPI 卡片 ============ */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  .kpi-card {
+    background: #FFFFFF;
+    border: 1px solid #E4DFD1;
+    border-radius: 10px;
+    padding: 18px 20px 16px 20px;
+    box-shadow: 0 1px 3px rgba(16,26,43,.06);
+    position: relative;
+  }
+  .kpi-label {
+    font-size: 12px;
+    color: #6B6A4E;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+  .kpi-value {
+    font-size: 26px;
+    font-weight: 600;
+    color: #101A2B;
+    line-height: 1.2;
+    letter-spacing: 0.5px;
+  }
+  .kpi-value .unit {
+    font-size: 14px;
+    color: #6B6A4E;
+    font-weight: 400;
+    margin-left: 2px;
+  }
+  .kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 10px;
+    padding: 2px 8px;
+    font-size: 11px;
+    background: #E8E4D8;
+    color: #6B6A4E;
+    border-radius: 4px;
+  }
+  .delta-up { color: #3FA97C; }
+  .delta-down { color: #B07A62; }
+  .delta-tri {
+    font-size: 9px;
+    margin-right: 3px;
+  }
+  .kpi-bar {
+    height: 3px;
+    background: #E5E0D2;
+    border-radius: 2px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .kpi-bar-fill {
+    height: 100%;
+    background: #3D5A8F;
+    border-radius: 2px;
+  }
+  .kpi-bar-fill.gold { background: #C29933; }
+  .kpi-bar-fill.green { background: #8FA38C; }
+
+  /* ============ 图表区 ============ */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1.7fr 1fr;
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  .card {
+    background: #FFFFFF;
+    border: 1px solid #E4DFD1;
+    border-radius: 10px;
+    padding: 18px 20px 20px 20px;
+    box-shadow: 0 1px 3px rgba(16,26,43,.06);
+  }
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #F0ECDD;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #101A2B;
+  }
+  .card-sub {
+    font-size: 11px;
+    color: #8A8FA0;
+    letter-spacing: 1px;
+  }
+  .card-tag {
+    font-size: 11px;
+    color: #8A6A14;
+    border: 1px solid rgba(194,153,51,.35);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  /* 柱状图 */
+  .bar-chart {
+    height: 240px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 10px 4px 0 4px;
+    position: relative;
+    border-left: 1px solid #E5E0D2;
+    border-bottom: 1px solid #E5E0D2;
+  }
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .bar-col .v {
+    font-size: 10px;
+    color: #8A8FA0;
+    margin-bottom: 4px;
+    height: 14px;
+  }
+  .bar {
+    width: 60%;
+    max-width: 26px;
+    background: #3D5A8F;
+    border-radius: 2px 2px 0 0;
+    transition: opacity .2s;
+  }
+  .bar.gray { background: #8A8FA0; }
+  .bar.gold { background: #C29933; }
+  .bar:hover { opacity: 0.78; }
+  .bar-label {
+    font-size: 11px;
+    color: #6B6A4E;
+    margin-top: 6px;
+  }
+  .bar-label.cur { color: #8A6A14; font-weight: 600; }
+  .grid-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 1px;
+    background: #F0ECDD;
+    pointer-events: none;
+  }
+  .bar-tip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #101A2E;
+    color: #F5EDD6;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    margin-bottom: 4px;
+  }
+  .bar-col:hover .bar-tip { opacity: 1; }
+
+  /* 环形图 */
+  .donut-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .donut-svg {
+    width: 160px; height: 160px;
+    flex-shrink: 0;
+    transform: rotate(-90deg);
+  }
+  .donut-svg circle {
+    fill: none;
+    stroke-width: 22;
+  }
+  .donut-bg { stroke: #F0ECDD; }
+  .legend {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: #101A2B;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  .legend-name { flex: 1; color: #101A2B; }
+  .legend-val { color: #6B6A4E; font-size: 12px; margin-left: 8px; }
+  .legend-pct { color: #101A2B; font-weight: 600; min-width: 36px; text-align: right; }
+
+  /* ============ 表格 ============ */
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    color: #6B6A4E;
+    font-weight: 500;
+    padding: 10px 12px;
+    background: #FAF8F0;
+    border-bottom: 1px solid #E4DFD1;
+    letter-spacing: 0.5px;
+  }
+  tbody td {
+    padding: 12px;
+    border-bottom: 1px solid #F0ECDD;
+    color: #101A2B;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #FAF8F0; }
+  td.num { color: #8A6A14; font-weight: 500; }
+  .status-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    font-size: 11px;
+    border-radius: 3px;
+  }
+  .status-tag::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .s-do { background: #EEF5EF; color: #2E6B4E; }
+  .s-do::before { background: #3FA97C; }
+  .s-arc { background: #F1EDDF; color: #5A4A2A; }
+  .s-arc::before { background: #C29933; }
+  .s-wait { background: #EFEDE6; color: #6B6A4E; }
+  .s-wait::before { background: #8A8FA0; }
+  .s-done { background: #E8E4D8; color: #4A4A38; }
+  .s-done::before { background: #8FA38C; }
+
+  .footer-note {
+    margin-top: 18px;
+    text-align: center;
+    color: #8A8FA0;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 侧栏导航 ============ -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-title">律所经营中后台</div>
+    <div class="brand-sub">LAW FIRM · OPS</div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">经营数据</div>
+    <a class="nav-item active" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      经营看板
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
+      报表中心
+    </a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">业务模块</div>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6V2z"/><path d="M14 2v6h6"/></svg>
+      案件管理
+      <span class="nav-badge">186</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
+      客户管理
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      财务管理
+    </a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">系统</div>
+    <a class="nav-item" href="#">
+      <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      系统设置
+    </a>
+  </div>
+</aside>
+
+<!-- ============ 主区域 ============ -->
+<main class="main">
+
+  <div class="page-header">
+    <div class="page-title">经营看板</div>
+    <div class="page-date">当前日期：<strong>2026 年 09 月 05 日（周六）</strong></div>
+  </div>
+
+  <!-- KPI 卡片 -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">本季创收</div>
+      <div class="kpi-value">¥1,286,400</div>
+      <span class="kpi-delta"><span class="delta-tri delta-up">▲</span>环比 +12.6%</span>
+      <div class="kpi-bar"><div class="kpi-bar-fill gold" style="width:78%"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">在办案件</div>
+      <div class="kpi-value">186<span class="unit">件</span></div>
+      <span class="kpi-delta"><span class="delta-tri delta-up">▲</span>较上月 +8</span>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:62%"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">客户总数</div>
+      <div class="kpi-value">2,340</div>
+      <span class="kpi-delta"><span class="delta-tri delta-up">▲</span>新增 +47</span>
+      <div class="kpi-bar"><div class="kpi-bar-fill green" style="width:55%"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">回款率</div>
+      <div class="kpi-value">87.3<span class="unit">%</span></div>
+      <span class="kpi-delta"><span class="delta-tri delta-up">▲</span>环比 +3.1%</span>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:87.3%"></div></div>
+    </div>
+  </div>
+
+  <!-- 图表区 -->
+  <div class="charts-row">
+
+    <!-- 柱状图 -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">近 12 个月创收趋势</div>
+          <div class="card-sub">单位：万元 ｜ 2025.10 – 2026.09</div>
+        </div>
+        <div class="card-tag">本月高亮</div>
+      </div>
+      <div class="bar-chart" id="barChart"></div>
+    </div>
+
+    <!-- 环形图 -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">案件状态分布</div>
+          <div class="card-sub">共 186 件</div>
+        </div>
+      </div>
+      <div class="donut-wrap">
+        <svg class="donut-svg" viewBox="0 0 100 100" id="donut"></svg>
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#3D5A8F"></span>
+            <span class="legend-name">进行中</span>
+            <span class="legend-val">98 件</span>
+            <span class="legend-pct">52.7%</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#C29933"></span>
+            <span class="legend-name">待立案</span>
+            <span class="legend-val">26 件</span>
+            <span class="legend-pct">14.0%</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#8A8FA0"></span>
+            <span class="legend-name">已归档</span>
+            <span class="legend-val">38 件</span>
+            <span class="legend-pct">20.4%</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#8FA38C"></span>
+            <span class="legend-name">已结案</span>
+            <span class="legend-val">24 件</span>
+            <span class="legend-pct">12.9%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 案件明细表 -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">最近案件</div>
+        <div class="card-sub">按立案时间倒序</div>
+      </div>
+      <div class="card-tag">共 186 件</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>案号</th>
+            <th>客户</th>
+            <th>案件类型</th>
+            <th>承办律师</th>
+            <th>标的额</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>（2026）京0108民初0921号</td>
+            <td>华信智造科技股份有限公司</td>
+            <td>合同纠纷</td>
+            <td>张明远</td>
+            <td class="num">¥ 3,280,000</td>
+            <td><span class="status-tag s-do">进行中</span></td>
+          </tr>
+          <tr>
+            <td>（2026）沪0115民初0442号</td>
+            <td>陈志伟</td>
+            <td>婚姻家事</td>
+            <td>李婉清</td>
+            <td class="num">¥ 8,600,000</td>
+            <td><span class="status-tag s-arc">待立案</span></td>
+          </tr>
+          <tr>
+            <td>（2026）粤0305民初1187号</td>
+            <td>南粤新材料有限公司</td>
+            <td>知识产权</td>
+            <td>周致远</td>
+            <td class="num">¥ 1,250,000</td>
+            <td><span class="status-tag s-do">进行中</span></td>
+          </tr>
+          <tr>
+            <td>（2026）京02民终0308号</td>
+            <td>中合汇金投资集团</td>
+            <td>股权纠纷</td>
+            <td>张明远 / 黄以诺</td>
+            <td class="num">¥ 12,800,000</td>
+            <td><span class="status-tag s-wait">已归档</span></td>
+          </tr>
+          <tr>
+            <td>（2026）浙0102民初0566号</td>
+            <td>林静怡</td>
+            <td>劳动仲裁</td>
+            <td>苏文清</td>
+            <td class="num">¥ 420,000</td>
+            <td><span class="status-tag s-done">已结案</span></td>
+          </tr>
+          <tr>
+            <td>（2026）苏0506民初0933号</td>
+            <td>吴江盛恒机械厂</td>
+            <td>债权追偿</td>
+            <td>陈彦舟</td>
+            <td class="num">¥ 2,640,000</td>
+            <td><span class="status-tag s-do">进行中</span></td>
+          </tr>
+          <tr>
+            <td>（2026）京0105民初0712号</td>
+            <td>北辰星辉文化传媒</td>
+            <td>侵权责任</td>
+            <td>李婉清</td>
+            <td class="num">¥ 960,000</td>
+            <td><span class="status-tag s-arc">待立案</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-note">© 2026 律所经营中后台 · 数据更新于 2026-09-05 09:00</div>
+</main>
+
+<script>
+  // 渲染柱状图
+  (function(){
+    const data = [
+      {m:'1月', v:78,  s:'gray'},
+      {m:'2月', v:62,  s:'gray'},
+      {m:'3月', v:88,  s:'gray'},
+      {m:'4月', v:95,  s:'gray'},
+      {m:'5月', v:104, s:'gray'},
+      {m:'6月', v:118, s:'gray'},
+      {m:'7月', v:96,  s:'gray'},
+      {m:'8月', v:110, s:'gray'},
+      {m:'9月', v:125, s:'gray'},
+      {m:'10月',v:108, s:'gray'},
+      {m:'11月',v:132, s:'gray'},
+      {m:'12月',v:146, s:'gold'}
+    ];
+    const max = 160;
+    const gridSteps = [0, 0.25, 0.5, 0.75, 1];
+    const chart = document.getElementById('barChart');
+    let html = '';
+    // 网格线
+    gridSteps.slice(0,-1).forEach(g=>{
+      html += `<div class="grid-line" style="bottom:${g*100}%"></div>`;
+    });
+    // 柱子
+    data.forEach((d,i)=>{
+      const h = (d.v / max) * 100;
+      const cur = d.s === 'gold' ? ' cur' : '';
+      html += `
+        <div class="bar-col">
+          <div class="bar-tip">${d.m}：${d.v} 万元</div>
+          <div class="v">${d.v}</div>
+          <div class="bar ${d.s}" style="height:${h}%"></div>
+          <div class="bar-label${cur}">${d.m}</div>
+        </div>`;
+    });
+    chart.innerHTML = html;
+  })();
+
+  // 渲染环形图
+  (function(){
+    const data = [
+      {v:52.7, c:'#3D5A8F'},
+      {v:14.0, c:'#C29933'},
+      {v:20.4, c:'#8A8FA0'},
+      {v:12.9, c:'#8FA38C'}
+    ];
+    const r = 38;
+    const c = 2 * Math.PI * r;
+    let acc = 0;
+    let html = `<circle class="donut-bg" cx="50" cy="50" r="${r}"></circle>`;
+    data.forEach(d=>{
+      const len = c * d.v / 100;
+      const dash = `${len} ${c - len}`;
+      const off = -c * acc / 100;
+      html += `<circle cx="50" cy="50" r="${r}" stroke="${d.c}" stroke-dasharray="${dash}" stroke-dashoffset="${off}"></circle>`;
+      acc += d.v;
+    });
+    document.getElementById('donut').innerHTML = html;
+  })();
+</script>
+
+</body>
+</html>
