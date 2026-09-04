@@ -1,0 +1,139 @@
+import math
+_M=object()
+def evaluate_rules(C,R):
+ for r in R:
+  try:
+   if not _E(_P(_T(r['cond'])).parse(),C):continue
+   v=r['action']['points']
+   val=v if isinstance(v,(int,float))else _A(_R(_U(v)),C)
+   return{'points':int(math.floor(val))}
+  except:continue
+ return None
+
+def _T(s):
+ t=[];i=0;n=len(s)
+ while i<n:
+  c=s[i]
+  if c.isspace():i+=1
+  elif c in'()':t.append((c,''));i+=1
+  elif c in'=<>!':
+   if i+1<n and s[i+1]=='=':t.append(('OP',s[i:i+2]));i+=2
+   else:t.append(('OP',c));i+=1
+  elif c in'"\'':
+   q=c;j=i+1
+   while j<n and s[j]!=q:j+=1
+   t.append(('STR',s[i+1:j]));i=j+1
+  elif c.isdigit()or(c=='.'and i+1<n and s[i+1].isdigit()):
+   j=i
+   while j<n and(s[j].isdigit()or s[j]=='.'):j+=1
+   t.append(('NUM',s[i:j]));i=j
+  elif c.isalpha()or c=='_':
+   j=i
+   while j<n and(s[j].isalnum()or s[j]=='_'):j+=1
+   w=s[i:j];t.append((w.upper()if w in('and','or','not')else'FLD',w));i=j
+  else:i+=1
+ t.append(('END',''));return t
+
+class _P:
+ def __init__(s,t):s.t=t;s.p=0
+ def pk(s):return s.t[s.p]
+ def eat(s,k=None):
+  x=s.t[s.p]
+  if k and x[0]!=k:raise ValueError
+  s.p+=1;return x
+ def parse(s):return s._or()
+ def _or(s):
+  l=s._and()
+  while s.pk()[0]=='OR':s.eat();l=('or',l,s._and())
+  return l
+ def _and(s):
+  l=s._not()
+  while s.pk()[0]=='AND':s.eat();l=('and',l,s._not())
+  return l
+ def _not(s):
+  if s.pk()[0]=='NOT':s.eat();return('not',s._not())
+  return s._atom()
+ def _atom(s):
+  if s.pk()[0]=='(':
+   s.eat();e=s._or();s.eat(')');return e
+  a=s._op()
+  if s.pk()[0]=='OP':
+   o=s.eat()[1];b=s._op();return('cmp',o,a,b)
+  return a
+ def _op(s):
+  x=s.eat()
+  if x[0]=='FLD':return('fld',x[1])
+  if x[0]=='NUM':return('num',float(x[1]))
+  if x[0]=='STR':return('str',x[1])
+  raise ValueError
+
+def _G(n,c):
+ t=n[0]
+ if t=='fld':return c.get(n[1],_M)
+ if t=='num':return n[1]
+ if t=='str':return n[1]
+ return _M
+
+def _E(n,c):
+ t=n[0]
+ if t=='and':return _E(n[1],c)and _E(n[2],c)
+ if t=='or':return _E(n[1],c)or _E(n[2],c)
+ if t=='not':return not _E(n[1],c)
+ if t=='cmp':
+  a,b=_G(n[2],c),_G(n[3],c)
+  if a is _M or b is _M:return False
+  o=n[1]
+  if o=='==':return a==b
+  if o=='!=':return a!=b
+  if o=='>':return a>b
+  if o=='>=':return a>=b
+  if o=='<':return a<b
+  return a<=b
+ return bool(_G(n,c))
+
+def _U(s):
+ t=[];i=0;n=len(s)
+ while i<n:
+  c=s[i]
+  if c.isspace():i+=1
+  elif c in'+-*/()':t.append(('OP',c));i+=1
+  elif c.isdigit()or(c=='.'and i+1<n and s[i+1].isdigit()):
+   j=i
+   while j<n and(s[j].isdigit()or s[j]=='.'):j+=1
+   t.append(('NUM',float(s[i:j])));i=j
+  elif c.isalpha()or c=='_':
+   j=i
+   while j<n and(s[j].isalnum()or s[j]=='_'):j+=1
+   t.append(('FLD',s[i:j]));i=j
+  else:i+=1
+ t.append(('END',''));return t
+
+def _R(toks):
+ p=[0]
+ def pk():return toks[p[0]]
+ def eat():x=toks[p[0]];p[0]+=1;return x
+ def E():
+  l=T()
+  while pk()[0]=='OP'and pk()[1]in'+-':o=eat()[1];r=T();l=(o,l,r)
+  return l
+ def T():
+  l=F()
+  while pk()[0]=='OP'and pk()[1]in'*/':o=eat()[1];r=F();l=(o,l,r)
+  return l
+ def F():
+  t=pk()
+  if t[0]=='OP'and t[1]=='(':eat();e=E();eat();return e
+  if t[0]=='NUM':eat();return('num',t[1])
+  if t[0]=='FLD':eat();return('fld',t[1])
+  return('num',0)
+ return E()
+
+def _A(n,c):
+ t=n[0]
+ if t=='num':return n[1]
+ if t=='fld':return float(c.get(n[1],0))
+ a,b=_A(n[1],c),_A(n[2],c)
+ if t=='+':return a+b
+ if t=='-':return a-b
+ if t=='*':return a*b
+ return a/b if b!=0 else 0

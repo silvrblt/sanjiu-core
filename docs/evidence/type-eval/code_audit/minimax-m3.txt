@@ -1,0 +1,10 @@
+7 高 SQL注入：note字段用字符串拼接进SQL，应改用参数化查询 `?` 占位符
+22 高 `row` 可能为 None，未做空检查直接 `row["balance"]` 会抛 TypeError，应先判空或用 COALESCE
+3 高 整个模块缺少授权校验：`user` 参数在 `submit_fee`/`approve_fee` 中从未使用，`adjust_balance` 根本没有 user 参数，存在越权风险
+44 高 硬编码 `{"customer_id": -1}` 覆盖了 `rec` 自身的 customer_id，导致所有批量导入记录归属同一客户（且 -1 通常是非法值）
+34 中 文件句柄未关闭，未使用 `with` 也没有 `f.close()`，异常路径会泄漏文件描述符
+25 中 `balance == 0.0 or delta == 0.0` 逻辑错误：会跳过合法的零结果调整（如 100 + (-100) = 0 应正常扣减）
+22 中 用 float 表示金额存在精度丢失风险，金融场景应改用 `decimal.Decimal` 或整数分
+21-27 中 SELECT 后再 UPDATE 存在 TOCTOU 竞态，应在单条 UPDATE 中用 `balance >= -delta` 条件做原子判断
+45 中 文档承诺"记录日志后继续"但 `except Exception: pass` 静默吞掉所有异常，无任何日志输出
+36 低 `SELECT *` 的列顺序与硬编码表头 `["id","customer_id","amount","note","created_at"]` 未对齐，schema 变更后表头会错位且无报错

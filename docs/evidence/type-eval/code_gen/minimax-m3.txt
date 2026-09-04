@@ -1,0 +1,34 @@
+```python
+def parse_config(text):
+    result = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if '#' in line:
+            line = line.split('#', 1)[0].strip()
+        if '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        result[key] = value
+    return result
+
+
+if __name__ == '__main__':
+    sample = '''
+# This is a comment
+name = "Alice"
+greeting = 'Hello, World!'
+port = 8080
+path = /usr/local/bin  # inline comment
+empty_val =
+
+# another comment
+flag = "on"
+'''
+    print(parse_config(sample))
+```

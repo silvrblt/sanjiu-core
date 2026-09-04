@@ -1,0 +1,15 @@
+{
+ "task": "text_gen",
+ "date": "2026-09-04",
+ "round": "候选抽测",
+ "prompt_file": "prompt.txt",
+ "results": [
+  {
+   "model": "qwen3-max",
+   "seconds": 6,
+   "in_tokens": 63,
+   "out_tokens": 179,
+   "reasoning_tokens": 0
+  }
+ ]
+}

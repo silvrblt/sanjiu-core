@@ -1,0 +1,50 @@
+```python
+def parse_config(text):
+    """解析 KEY=VALUE 配置文本为 dict。
+
+    规则：
+    - 每行形如 KEY=VALUE，按第一个 '=' 分割（值中可包含 '='）
+    - 以 '#' 开头的行视为注释，忽略
+    - 空行（或仅含空白）忽略
+    - 值若被成对的单引号或双引号包裹，则去掉首尾引号
+    - key 与 value 均去除首尾空白
+    """
+    result = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith('#'):
+            continue  # 忽略空行与注释行
+        if '=' not in line:
+            continue  # 忽略不含 '=' 的无效行
+        key, _, value = line.partition('=')
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]  # 去掉成对引号
+        result[key] = value
+    return result
+
+
+if __name__ == "__main__":
+    sample = """
+# 数据库配置
+host = 127.0.0.1
+port=8080
+
+name = "my app"
+greeting = 'hello = world'
+empty =
+"""
+    cfg = parse_config(sample)
+    print(cfg)
+    assert cfg == {
+        "host": "127.0.0.1",
+        "port": "8080",
+        "name": "my app",
+        "greeting": "hello = world",
+        "empty": "",
+    }
+    print("OK")
+```

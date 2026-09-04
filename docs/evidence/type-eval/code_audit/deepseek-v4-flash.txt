@@ -1,0 +1,5 @@
+7 高 submit_fee使用字符串格式化将用户输入直接拼入SQL，存在SQL注入风险；应改用sqlite3参数化查询（?占位符）。
+22 中 adjust_balance未判断customer_id不存在时row为None，直接取row["balance"]会抛异常；应先检查row is None并返回错误/初始化余额。
+25 高 balance==0.0或delta==0.0的判断会在余额为0且delta为正时错误返回“无需调整”，导致余额不更新；应只判断delta是否为零，并建议用Decimal而非浮点比较。
+34 中 export_fees使用open后未在finally/with中关闭，发生异常时文件句柄可能泄漏/输出不完整；应使用with open(..., newline="") as f。
+46 中 batch_import捕获所有异常后直接pass，无日志输出，无法定位失败记录；应记录失败原因和记录内容后继续，或返回失败统计。

@@ -1,0 +1,9 @@
+{
+ "code_gen_hard": {
+  "deepseek-v4-flash": "未达标(语法错误: expected ':' (<unknown>, line 27))",
+  "doubao-seed-2-1-turbo-260628": "达标",
+  "hy3": "达标",
+  "kimi-k2.7-code": "达标",
+  "minimax-m3": "达标"
+ }
+}

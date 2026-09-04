@@ -1,0 +1,35 @@
+def parse_config(text):
+    result = {}
+    if not isinstance(text, str):
+        return result
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if (
+            len(value) >= 2
+            and value[0] == value[-1]
+            and value[0] in ("'", '"')
+        ):
+            value = value[1:-1]
+        result[key] = value
+    return result
+
+
+if __name__ == "__main__":
+    sample = """
+# This is a comment
+NAME = "Alice"
+AGE = '30'
+
+EMPTY =
+
+# Another comment
+PATH = "/usr/local/bin"
+"""
+    print(parse_config(sample))
