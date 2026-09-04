@@ -44,6 +44,7 @@ candidate_pool:
   # ui_design 生成分工（2026-09-05 老板终裁，证据 docs/evidence/type-eval/ui_design-三模型分工定稿-20260905.md）：
   #   T1 主力 minimax-m3(+qwen 风格基线注入,≈¥0.08/页) 70% / T2 质感 qwen3.8-max(直出,≈¥0.50) 20%
   #   / T3 平价替身 glm-5.3(+基线,≈¥0.35) 10%；hy3/doubao 已移出 ui_design；风格基线资产 style-transfer/
+  #   2026-09-05 v2 低饱和修订（老板纠正）：minimax 生产调用必须带 thinking:{"type":"disabled"}（实测 6.1k out 完整页 vs 思考开 40k+ 截断）
 
   # 推荐类型 = 测评达标资格（证据：docs/evidence/type-eval/达标度汇总-20260904.md + 各 task 结果 md）
   verified_models:
