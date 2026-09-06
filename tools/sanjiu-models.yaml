@@ -29,7 +29,7 @@
 #       kimi-k2 / glm-5.1——配置位已留，接通后按 §3.2 补盲测记录并 flip enabled。
 
 version: 4
-updated_at: "2026-09-04"
+updated_at: "2026-09-06"  # Q3 2026-09-06：P3 ui_design_tiers 结构化 / P4 image_gen 标识统一 / T11 注记清理（v3.7.x 期间 2026-09-05 为 ui_design 终裁）
 
 # ---- 立案庭类型路由（2026-09-04 v5 定稿实施；候选池价格核验 v4 全 ✓ verbatim）----
 task_types:
@@ -39,7 +39,9 @@ task_types:
 
 candidate_pool:
   # 价格核验 v4（17 项 ✓ verbatim，evidence/候选池价格核验-20260903.md）；价格 = 输入/输出（元/百万 token）
-  # 调用选择优先级：①合规异厂 → ②类型专项测评达标 → ③输入价最低 → ④同价档性价比（0.7×达标度+0.3×价优度）
+  # 调用选择优先级（R4 需求原文）：①合规异厂 → ②类型专项测评达标 → ③输入价最低 → ④同价档性价比（0.7×达标度+0.3×价优度）
+  # 【Q3 2026-09-06 降级标注】route_task v1.2.x 消费层实现：①②③ + ④降级为 ±10% 同价档内按 price_out 升序
+  #   （yaml 无达标度数值字段，原公式不可复现；月度补测补 verified_models 达标度字段后恢复原公式）
   # 2026-09-04 基准层测评校准（两批 6 类型×8 席；达标线=自动验收；双盲复核后置，<6.0 回改）
   # ui_design 生成分工（2026-09-05 老板终裁，证据 docs/evidence/type-eval/ui_design-三模型分工定稿-20260905.md）：
   #   T1 主力 minimax-m3(+qwen 风格基线注入,≈¥0.08/页) 70% / T2 质感 qwen3.8-max(直出,≈¥0.50) 20%
@@ -316,7 +318,8 @@ tool_seats: # 工具席位：不参与三审程序，router 分派/审计/裁决
     price_cache: 0.23
     note: |
       视频/图片多模态理解（Ox Alpha 2026-08-26 智谱官方认领；1M 上下文；UI 动效复现/验收证据用；不走三审程序；成本独立记账；2026-08-27 联网核验）。
-      历史注记（T11 2026-09-06 合并去重）：读图默认曾为 ds-v4-flash-vision-exp（2026-08-24 拍板）/qwen-vl-plus（更早弃用）——2026-09-02 老板 T1 全线替换为 glm-5.3-flash，vision_read/video_read 均以 model 字段为准；官方价 输入 0.8/输出 2（华北2北京，缓存命中 0.16、Batch 0.4/1，2026-08-15 核验），读图失败升级 kimi-k3；成本独立记账（视觉专款）
+      官方价口径（Q9 2026-09-06 对齐字段）：输入 0.8/输出 2.8（¥/M，与 price 字段一致），缓存命中 0.23（与 price_cache 一致）；华北2北京 Batch 0.4/1、RPM 1200/TPM 100 万（2026-08-15 核验）；读图失败升级 kimi-k3；GLM-4.6V-Flash/4.7-Flash 免费视觉弃用不恢复。
+      历史注记（T11 合并去重）：读图默认曾为 ds-v4-flash-vision-exp（2026-08-24 拍板）/qwen-vl-plus（更早弃用）——2026-09-02 老板 T1 全线替换 glm-5.3-flash，vision_read/video_read 以 model 字段为准；注意 model=qwen-vl-plus 是 API 模型 ID、cli=qwen-vision 是桥接命令名（同 hunyuan-hy3 模型 ID + hunyuan-audit 命令名同构），二者不同维度不冲突
   image_gen:
     name: 视觉专属席·文生图
     role: tool

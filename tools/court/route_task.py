@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
-"""route_task.py — 立案庭路由（审级组合分流 + 类型路由消费，v1.2.1 2026-09-06 三审打回补正版）
+"""route_task.py — 立案庭路由（审级组合分流 + 类型路由消费，v1.2.2 2026-09-06 三审终核二轮补正）
 
 两层：
   1. 审级组合分流（审级组合需求 v6 定稿 2026-09-03）：domain/scale/type/history → 组合 A/B/A_exception/C_trigger
-  2. 类型路由消费（类型路由需求 v5 定稿 2026-09-03，关闭终版说明 §三 未决清单 #1）：
-     任务类型 → 候选池达标模型自动接线（选择优先级①合规异厂 ②测评达标 ③输入价最低
-     ④±10% 同价档内输出价升序（降级实现：yaml 无达标度数值字段，R4 原 0.7×达标度公式待月度补测后恢复）；
-     ui_design 走老板终裁 Tier；image_* 走工具席 tool_seats；compound 人工改判）
+  2. 类型路由消费（类型路由需求 v5 定稿 2026-09-03）：任务类型 → 候选池达标模型自动接线，
+     即终版说明 §三 未决清单 #1 的消费侧部分（未决清单整体**暂缓关闭**——D5 三审终裁：
+     R1 完整判定器/R3 逐审级席位路由/R4 达标度公式未闭环，遗留见 docs/type-route/审计链记录 §四；
+     选择优先级①合规异厂 ②测评达标 ③输入价最低 ④±10% 同价档内输出价升序（降级实现：
+     yaml 无达标度数值字段，R4 原 0.7×达标度公式待月度补测补字段后恢复）；
+     ui_design 走老板终裁 Tier（share 加权调度）；image_* 走工具席 tool_seats；compound 人工改判）
   3. 审计修正履历：
      v1.2.0（组合 B 二审共识，2026-09-06）：doubao 承办 P1-P12 + DS Pro 对抗 A1-A5 → 全部处置（见
        docs/type-route/审计链记录-类型路由消费代码-20260906.md；P6/P8/P11 = R1 判定器升级后续节奏）
-     v1.2.1（Qwen 三审终核打回 T1-T12 补正，2026-09-06）：
-       T1/T2 self_test 动态计数（skipped 独立、缺失不计通过）/ T3 段 6 改仓库根探测（副本自检位置无关）/
-       T4 副本一致证据入审计链记录 / T5 配置结构防御（ConfigError + 全异常友好报错）/
-       T6 exclude_vendor 覆盖 ui_design Tier（降级取次）+ tool_seat 显式声明边界 /
-       T7 同价档 anchor≤0 防御 / T8 errors_ledger_count 数值防御 / T9 段 3 加动态不变量断言 /
-       T10 注释口径（v5/v6 双需求标注 + 降级实现标注）/ T11 yaml 历史注记清理（l3_lead/video_read）/
-       T12 locate 探测顺序注释修正
+     v1.2.1（Qwen 三审终核一轮打回 T1-T12 补正，2026-09-06）：动态计数/位置无关副本校验/配置结构防御/
+       exclude_vendor 覆盖 Tier 与 tool_seat 边界/0 价防御/数值防御/快照+动态不变量/双需求口径/yaml 注记清理
+     v1.2.2（Qwen 三审终核二轮打回 Q1-Q11 补正，2026-09-06）：Q1 未决清单口径（暂缓关闭，移除"关闭"表述）/
+       Q2 load_rules 全结构校验 + main 全段捕获 / Q3 yaml 降级口径注记与 updated_at /
+       Q4 段 6 固定预期副本清单 + env 覆盖 / Q5 sync-local 2b2 证据入审计记录 /
+       Q6 ui_design 输出 selection_policy / Q7 exclude_vendor 支持 list / Q8 未知 vendor 警告 /
+       Q9 video_read.note 价格口径 / Q10 _threshold 非法回退 / Q11 sha256 + with open + 全 inf 不变量收口
 
 依赖：PyYAML ≥ 5.0（pip install pyyaml）；其余仅标准库。
 
@@ -77,9 +79,18 @@ def load_rules():
             rules = yaml.safe_load(f)
     except yaml.YAMLError as e:
         raise ConfigError(f"routing_rules.yaml 解析失败: {e}")
-    rr = (rules or {}).get("routing_rules")
-    if not isinstance(rr, dict) or not isinstance(rr.get("force_b"), list):
-        raise ConfigError("routing_rules.yaml 结构异常：缺 routing_rules.force_b 列表")
+    if not isinstance(rules, dict):
+        raise ConfigError("routing_rules.yaml 顶层须为 dict")
+    rr = rules.get("routing_rules")
+    if not isinstance(rr, dict):
+        raise ConfigError("routing_rules.yaml 结构异常：缺 routing_rules 节")
+    for key in ("force_b", "simple_a", "exceptions"):
+        if not isinstance(rr.get(key), list):
+            raise ConfigError(f"routing_rules.yaml 结构异常：routing_rules.{key} 须为 list")
+    combos = rules.get("combos")
+    if not isinstance(combos, dict) or any(c not in combos or not isinstance(combos[c], dict) or not combos[c].get("name")
+                                           for c in ("A", "B", "A_exception", "C_trigger")):
+        raise ConfigError("routing_rules.yaml 结构异常：combos 须含 A/B/A_exception/C_trigger 且各有 name")
     return rules
 
 
@@ -167,19 +178,38 @@ def _num(v):
 
 
 def _int_hist(v):
-    """T8：errors_ledger_count 数值防御——非法输入置 0。"""
+    """T8：errors_ledger_count 任务侧数值防御——非法输入置 0。"""
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 else 0
 
 
+def _threshold(v):
+    """Q10：规则侧 history threshold 防御——缺失/非法/非正回退默认 5（防 threshold 被归 0 导致全量触发 B）。"""
+    if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+        return v
+    return 5
+
+
+def _norm_excludes(exclude_vendor):
+    """Q7：exclude_vendor 归一化为集合（支持 str | list[str] | None；空值 = 不过滤）。"""
+    if exclude_vendor is None:
+        return set()
+    if isinstance(exclude_vendor, str):
+        return {exclude_vendor} if exclude_vendor else set()
+    if isinstance(exclude_vendor, (list, tuple)):
+        return {v for v in exclude_vendor if isinstance(v, str) and v}
+    return set()
+
+
 def rank_models(ttype, models, exclude_vendor=None):
-    """选择优先级 ②③④：types 达标过滤（②）→ exclude_vendor 异厂（① 消费接口）→ 输入价升序（③）
-    → ±10% 同价档内按输出价升序（④ 次级锚，降级实现——yaml 无达标度数值字段，R4 原
-    0.7×达标度公式不可复现；月度补测补字段后恢复原公式）。
+    """选择优先级 ②③④：types 达标过滤（②）→ exclude_vendor 异厂（① 消费接口，支持 str/list）→
+    输入价升序（③）→ ±10% 同价档内按输出价升序（④ 次级锚，降级实现——yaml 无达标度数值字段，
+    R4 原 0.7×达标度公式不可复现；月度补测补字段后恢复原公式）。
     同价档规则：以档首（最小）price_in 为锚，与锚差 ≤10% 归同档（不链式传播；anchor≤0 单独成档），
     档内按 price_out 升序。A4：候选复制后排序，不原地修改 yaml 解析对象。返回排序后候选全量。"""
+    ex = _norm_excludes(exclude_vendor)
     hits = [dict(m) for m in models if ttype in (m.get("types") or [])]
-    if exclude_vendor:
-        hits = [m for m in hits if m.get("vendor") != exclude_vendor]
+    if ex:
+        hits = [m for m in hits if m.get("vendor") not in ex]
     hits.sort(key=lambda m: _num(m.get("price_in")))
     result = []
     i = 0
@@ -213,26 +243,38 @@ def ui_design_tiers(models_yaml):
 
 def ui_design_decision(models_yaml, exclude_vendor=None):
     """ui_design：老板 2026-09-05 终裁 Tier 分工（不走通用价格序，D1 终裁采纳）。
-    T6：exclude_vendor 命中 tier 模型厂商时剔除该档，降级取次档；全剔除 → manual。"""
+    T6/Q7：exclude_vendor（str/list）命中 tier 模型厂商时剔除该档，降级取次档；全剔除 → manual。
+    Q6：recommended = 最高可用档展示值，实际生产按 share 加权调度（selection_policy 明示）。
+    Q8：tier 模型在 verified_models 查不到 vendor 且存在 exclude 时 → note 显式警告。"""
     tiers, fell_back = ui_design_tiers(models_yaml)
     note = ("ui_design 生产分工按老板 2026-09-05 终裁 Tier（yaml candidate_pool.ui_design_tiers 事实源），"
-            "不走通用价格序；hy3/doubao 资格已移出 yaml；DS 系虽持 ui_design 测评资格但不在终裁分工内")
+            "不走通用价格序；hy3/doubao 资格已移出 yaml；DS 系虽持 ui_design 测评资格但不在终裁分工内；"
+            "recommended 为最高可用档展示值，生产按 share 加权调度（70/20/10）")
     if fell_back:
         note += "；[fallback] yaml ui_design_tiers 缺失，使用内置常量"
-    if exclude_vendor:
+    ex = _norm_excludes(exclude_vendor)
+    if ex:
         kept = []
+        unknown = []
         for t in tiers:
-            if _vendor_of(models_yaml, t["model"]) != exclude_vendor:
+            v = _vendor_of(models_yaml, t["model"])
+            if v is None:
+                unknown.append(t["model"])
+                kept.append(t)  # vendor 不可知不盲剔（Q8）
+            elif v not in ex:
                 kept.append(t)
         tiers = kept
-        note += f"；exclude_vendor={exclude_vendor} 过滤后取剩余档"
+        note += f"；exclude_vendor={sorted(ex)} 过滤后取剩余档"
+        if unknown:
+            note += f"；[警告] {unknown} vendor 未在 verified_models 登记，未参与过滤"
     if not tiers:
         return {"decision": "manual", "recommended": None, "candidates": [],
                 "note": f"ui_design 无可用 Tier（exclude_vendor={exclude_vendor} 过滤后为空），人工指派"}
     return {
         "decision": "tier",
-        "recommended": {"model": tiers[0]["model"], "tier": tiers[0]["tier"], "note": "终裁 T1 主力（异厂过滤后取最高可用档）"
-                        if exclude_vendor else "终裁 T1 主力"},
+        "selection_policy": "weighted_by_share",
+        "recommended": {"model": tiers[0]["model"], "tier": tiers[0]["tier"],
+                        "note": "按 share 加权调度，此处展示最高可用档"},
         "candidates": tiers,
         "note": note,
     }
@@ -302,7 +344,7 @@ def route(task, rules):
             return "B", f"强制域:{dom}", [sig]
         if sig.get("signal") == "scale" and scale == sig.get("value"):
             return "B", f"跨模块重构:{scale}", [sig]
-        if sig.get("signal") == "history" and hist >= _int_hist(sig.get("threshold", 5)):
+        if sig.get("signal") == "history" and hist >= _threshold(sig.get("threshold", 5)):
             return "B", f"历史高错误率:{hist}", [sig]
 
     # ② 例外：单文件 bugfix
@@ -320,9 +362,11 @@ def route(task, rules):
     return "A", "默认组合 A", []
 
 
-def _md5(path):
+def _file_sha256(path):
+    """Q11：文件完整性校验用 sha256（与审计口径一致）。"""
     import hashlib
-    return hashlib.md5(open(path, "rb").read()).hexdigest()
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
 
 
 def self_test():
@@ -430,10 +474,13 @@ def self_test():
             top_ok = False
             if prices:
                 pmin = min(prices)
-                low_band = [c for c in cands if _num(c.get("price_in")) <= pmin * 1.1 + 1e-9]
-                low_outs = [_num(c.get("price_out")) for c in low_band]
-                top_ok = (_num(got["recommended"].get("price_in")) <= pmin * 1.1 + 1e-9
-                          and _num(got["recommended"].get("price_out")) == min(low_outs))
+                if pmin == float("inf"):
+                    top_ok = False  # Q11：全异常价不得宽松通过（正常数据 pmin 恒有限）
+                else:
+                    low_band = [c for c in cands if _num(c.get("price_in")) <= pmin * 1.1 + 1e-9]
+                    low_outs = [_num(c.get("price_out")) for c in low_band]
+                    top_ok = (_num(got["recommended"].get("price_in")) <= pmin * 1.1 + 1e-9
+                              and _num(got["recommended"].get("price_out")) == min(low_outs))
             check(all_qual and no_big_inv and top_ok,
                   f"[不变量] {ttype} 全达标 + 无>10%逆序 + top∈最低价档且档内输出价最低",
                   f"不变量: {ttype} all_qual={all_qual} no_big_inv={no_big_inv} top_ok={top_ok}")
@@ -455,6 +502,17 @@ def self_test():
     check(got_t["decision"] == "tier" and got_t["recommended"]["model"] == "qwen3.8-max",
           f"ui_design + exclude_vendor=minimax → {got_t['recommended']['model']}（降级取 T2）",
           f"Tier 异厂: 期望剔除 minimax 后取 qwen3.8-max 实得 {got_t['recommended']}")
+
+    # Q7：exclude_vendor list 支持（多厂商排除）
+    got_l = type_route("code_gen", models_yaml, exclude_vendor=["minimax", "doubao"])
+    check(got_l["recommended"]["model"] == "kimi-k2.7-code",
+          f"code_gen + exclude_vendor=[minimax,doubao] → {got_l['recommended']['model']}",
+          f"exclude list: 期望 kimi-k2.7-code 实得 {got_l['recommended']}")
+    # Q6：ui_design 输出 selection_policy
+    got_p = type_route("ui_design", models_yaml)
+    check(got_p.get("selection_policy") == "weighted_by_share",
+          "ui_design 输出含 selection_policy=weighted_by_share（Q6）",
+          f"selection_policy 缺失: {got_p}")
 
     # ---- 段 5：边界（未知扩展类/空候选/Tier 完整性/工具席缺失防御/0 价防御）----
     print("== 段 5：边界（扩展类/空候选/Tier/工具席缺失/0 价）==")
@@ -491,40 +549,44 @@ def self_test():
           "price_in=0 异常价排末位且不除零（T7）",
           f"0 价防御: 期望 [x-1, x-free(末位)] 实得 {[m['model'] for m in r5]}")
 
-    # ---- 段 6：副本一致性（仓库根探测——T3 位置无关；缺失副本 = skipped 不计通过）----
-    print("== 段 6：副本 md5 一致性（P5 防漂移；缺失=skipped）==")
-    here_md5 = _md5(os.path.abspath(__file__))
-    core_root = _find_core_root(HERE)
-    peers = {}
-    rules_peers = {}
+    # Q10：threshold 非法值回退 5（不归 0 全量触发）
+    rr_bad = {"signal": "history", "value": "error_rate_high_30d_ge5", "threshold": -1}
+    check(route({"errors_ledger_count": 2}, {"routing_rules": {"force_b": [rr_bad], "simple_a": [], "exceptions": []}, "combos": {}})[0] == "A",
+          "threshold=-1 回退 5 → hist=2 不触发 B（Q10）",
+          "threshold 防御: -1 应回退 5 且 hist=2 不触发")
+    rr_str = {"signal": "history", "value": "error_rate_high_30d_ge5", "threshold": "x"}
+    check(route({"errors_ledger_count": 9}, {"routing_rules": {"force_b": [rr_str], "simple_a": [], "exceptions": []}, "combos": {}})[0] == "B",
+          "threshold='x' 回退 5 → hist=9 触发 B（Q10）",
+          "threshold 防御: 'x' 应回退 5 且 hist=9 触发")
+
+    # ---- 段 6：副本一致性（Q4：固定预期副本清单——存在即比 sha256，缺失显式 skip；env 可覆盖路径）----
+    print("== 段 6：副本 sha256 一致性（P5 防漂移；缺失=skipped）==")
+    here_sha = _file_sha256(os.path.abspath(__file__))
+    # 预期副本：主仓 court/tools + 运行位 eep-tools；默认布局 = 主仓上两级 00_global-shared/tools/eep-tools
+    core_root = os.environ.get("SANJIU_CORE_ROOT") or (_find_core_root(HERE) or "")
+    eep_dir = os.environ.get("SANJIU_EEP_DIR") or (os.path.join(os.path.dirname(os.path.dirname(core_root)), "tools", "eep-tools") if core_root else "")
+    expected_peers = []
     if core_root:
-        peers["主仓 tools/court/route_task.py"] = os.path.join(core_root, "tools", "court", "route_task.py")
-        peers["主仓 tools/route_task.py"] = os.path.join(core_root, "tools", "route_task.py")
-        # 运行位布局：00_global-shared/mechanisms/sanjiu-core ↔ 00_global-shared/tools/eep-tools（core_root 上两级）
-        ws_shared = os.path.dirname(os.path.dirname(core_root))
-        eep_dir = os.path.join(ws_shared, "tools", "eep-tools")
-        if os.path.isdir(eep_dir):
-            peers["运行位 tools/eep-tools/route_task.py"] = os.path.join(eep_dir, "route_task.py")
-            rules_peers = {"运行位 tools/eep-tools/routing_rules.yaml": os.path.join(eep_dir, "routing_rules.yaml")}
-    # 无主仓环境的机器（core_root=None）：校验同层是否存在其他副本
-    for cand in (os.path.join(HERE, "route_task.py"),):
-        if os.path.exists(cand) and os.path.abspath(cand) != os.path.abspath(__file__):
-            peers["同目录 route_task.py"] = cand
+        expected_peers.append(("主仓 tools/route_task.py", os.path.join(core_root, "tools", "route_task.py")))
+    if eep_dir:
+        expected_peers.append(("运行位 tools/eep-tools/route_task.py", os.path.join(eep_dir, "route_task.py")))
+        expected_peers.append(("运行位 tools/eep-tools/routing_rules.yaml", os.path.join(eep_dir, "routing_rules.yaml")))
+    if not expected_peers:
+        skip("段 6（无仓根/运行位定位：SANJIU_CORE_ROOT/SANJIU_EEP_DIR 未设且探测失败）")
     seen = set()
-    for label, p in peers.items():
+    for label, p in expected_peers:
         ap = os.path.abspath(p)
         if ap in seen:
             continue
         seen.add(ap)
         if not os.path.exists(p):
-            skip(label)
+            skip(f"{label}（{p} 不存在）")
             continue
-        check(_md5(p) == here_md5, f"{label} 与权威版一致", f"副本漂移: {label} 与权威版不一致")
-    for label, p in rules_peers.items():
-        if not os.path.exists(p):
-            skip(label)
-            continue
-        check(_md5(p) == _md5(locate_rules()), f"{label} 与权威 rules 一致", f"副本漂移: {label} 与权威 rules 不一致")
+        if "routing_rules.yaml" in p:
+            same = _file_sha256(p) == _file_sha256(locate_rules())
+        else:
+            same = _file_sha256(p) == here_sha
+        check(same, f"{label} 一致", f"副本漂移: {label}（{p}）")
 
     total = passed + len(failures) + skipped
     print(f"回测: {passed}/{total} 通过，{len(failures)} 失败，{skipped} 跳过（动态计数）")
@@ -541,8 +603,9 @@ def main():
             print(__doc__)
             sys.exit(2)
         try:
-            task = json.load(open(sys.argv[1], encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as e:  # T5：任务卡非法 → 友好报错
+            with open(sys.argv[1], encoding="utf-8") as f:
+                task = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:  # 任务卡非法 → 友好报错
             print(f"✗ 任务卡读取/解析失败：{e}", file=sys.stderr)
             sys.exit(2)
         if not isinstance(task, dict):
@@ -550,15 +613,15 @@ def main():
             sys.exit(2)
         rules = load_rules()
         models_yaml = load_models()[0]
-    except (ConfigError, KeyError, TypeError) as e:
-        print(f"✗ 配置错误：{e}", file=sys.stderr)
+        combo, reason, matched = route(task, rules)
+        ttype = classify_type(task)
+        out = {"combo": combo, "combo_name": rules["combos"][combo]["name"],
+               "reason": reason, "matched": matched,
+               "task_type": ttype, "type_note": "低置信=compound 需人工改判",
+               "type_route": type_route(ttype, models_yaml, task.get("exclude_vendor"))}
+    except (ConfigError, KeyError, TypeError, AttributeError) as e:  # Q2：配置/结构异常全段友好退出
+        print(f"✗ 路由执行错误：{type(e).__name__}: {e}", file=sys.stderr)
         sys.exit(2)
-    combo, reason, matched = route(task, rules)
-    ttype = classify_type(task)
-    out = {"combo": combo, "combo_name": rules["combos"][combo]["name"],
-           "reason": reason, "matched": matched,
-           "task_type": ttype, "type_note": "低置信=compound 需人工改判",
-           "type_route": type_route(ttype, models_yaml, task.get("exclude_vendor"))}
     print(json.dumps(out, ensure_ascii=False, indent=2))
 
 
