@@ -47,6 +47,13 @@ candidate_pool:
   #   2026-09-05 v2 低饱和修订（老板纠正）：minimax 生产调用必须带 thinking:{"type":"disabled"}（实测 6.1k out 完整页 vs 思考开 40k+ 截断）
 
   # 推荐类型 = 测评达标资格（证据：docs/evidence/type-eval/达标度汇总-20260904.md + 各 task 结果 md）
+  ui_design_tiers:  # 老板 2026-09-05 终裁生产分工（消费层 ui_design 决策源；P3 2026-09-06 从代码常量结构化入库）
+    - {tier: T1, usage: 常规看板/中后台页/内部工具页（高频）, model: minimax-m3, share: 0.7,
+       style: 注入 qwen 风格基线 + thinking:disabled + max_tokens 28000, cost_per_page_yuan: 0.08, note: 终裁 T1 主力}
+    - {tier: T2, usage: 对外门面/客户演示/汇报页（低频）, model: qwen3.8-max, share: 0.2,
+       style: 直出 + 提示词要求内容密度（短板：下半页留白）, cost_per_page_yuan: 0.5, note: 终裁 T2 质感}
+    - {tier: T3, usage: T2 预算敏感替代 / qwen 排队降级, model: glm-5.3, share: 0.1,
+       style: 注入风格基线 + 明确要求数据模块完整度（短板：数据模块单薄）, cost_per_page_yuan: 0.35, note: 终裁 T3 平价替身}
   verified_models:
     - {model: glm-5.3-flash, price_in: 0.8, price_out: 2.8, cache: 0.23, vendor: zhipu, note: 5折至9/10, types: [text_gen, image_understand]}
     - {model: hy3, price_in: 1.0, price_out: 4.0, cache: 0.25, vendor: tencent, types: [code_audit, text_gen, text_understand, data_analysis], note: "code_gen 双盲回改移出(ast 违规)；ui_design 老板终裁抛弃(2026-09-05)"}
@@ -64,7 +71,7 @@ candidate_pool:
     - {model: qwen3.8-max, price_in: 12.0, price_out: 36.0, cache: null, vendor: aliyun, types: [code_audit, text_gen, text_understand, data_analysis, ui_design]}
     - {model: kimi-k2.7-code-highspeed, price_in: 13.0, price_out: 54.0, cache: 2.6, vendor: moonshot, types: [code_gen]}
     - {model: kimi-k3, price_in: 20.0, price_out: 100.0, cache: 2.0, vendor: moonshot, types: [code_audit]}
-    - {model: doubao-seedream-4-0, price_per_image: 0.3, vendor: ark, types: [image_gen]}
+    - {model: doubao-seedream-4-0-250828, price_per_image: 0.3, vendor: ark, types: [image_gen], note: "标识与 tool_seats/ark-image 统一（P4 2026-09-06）"}
 
 seats_pool:
   # 席位候选池（每席 ≥2，类型推荐初判待测评校准；同厂同审级预筛异厂）
@@ -78,7 +85,7 @@ seats_pool:
   l3_antagonist: {candidates: [qwen3.8-max, glm-5.3], primary: qwen3.8-max}
   l3_judge: {candidates: [kimi-k3, qwen3.8-max], primary: kimi-k3}
   vision_read: {candidates: [glm-5.3-flash, kimi-k2.6], primary: glm-5.3-flash}
-  image_gen: {candidates: [doubao-seedream-4-0], primary: doubao-seedream-4-0}
+  image_gen: {candidates: [doubao-seedream-4-0-250828], primary: doubao-seedream-4-0-250828}
 
 
 defaults:

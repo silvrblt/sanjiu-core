@@ -55,6 +55,15 @@ if [ "${1:-}" != "--check" ]; then
       echo "  ✓ 运行位 tools/$f 一致"
     fi
   done
+  # 2b2. 立案庭运行位拉取（court 权威：route_task.py + routing_rules.yaml；2026-09-06 N4 收口防漂移）
+  for f in route_task.py routing_rules.yaml; do
+    if ! diff -q "$CORE/tools/court/$f" "$EEP_TOOLS/$f" >/dev/null 2>&1; then
+      cp "$EEP_TOOLS/$f" "$EEP_TOOLS/$f.bak-sync-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
+      cp "$CORE/tools/court/$f" "$EEP_TOOLS/$f" && echo "  ✓ 运行位 court/$f 已更新（旧版备份）"
+    else
+      echo "  ✓ 运行位 court/$f 一致"
+    fi
+  done
   # 2c. 机制 skill 同步（retrospect）
   mkdir -p "$HOME/.agents/skills"
   if [ -d "$CORE/tools/skills/retrospect" ] && ! diff -q "$CORE/tools/skills/retrospect/SKILL.md" "$HOME/.agents/skills/retrospect/SKILL.md" >/dev/null 2>&1; then

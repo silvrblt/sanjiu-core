@@ -13,7 +13,7 @@ routing_rules:
     - {signal: domain, value: security}
     - {signal: domain, value: framework_change}
     - {signal: scale, value: cross_module_refactor}   # 判据：≥3 模块或 >20 文件
-    - {signal: history, value: error_rate_high_30d_ge5}  # errors-ledger 30 天滚动 count≥5
+    - {signal: history, value: error_rate_high_30d_ge5, threshold: 5}  # 30 天滚动 count≥threshold（route() 读 threshold；A2 2026-09-06 结构化）
   simple_a:
     - {signal: type, value: bugfix}        # 组合 A（bugfix 单文件走例外，见 exceptions）
     - {signal: type, value: internal_tool}
