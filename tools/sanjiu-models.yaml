@@ -241,7 +241,7 @@ seats:
     auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
     budget_hardcap: 15  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
     alternates: []
-    note: MECH-03 v8 定稿：GLM-5.2 三审承办（8/28）；GLM-4.7-Flash 免费版全渠道弃用
+    note: MECH-03 v8 定稿：GLM-5.3 三审承办（8/28）；GLM-4.7-Flash 免费版全渠道弃用（T11 2026-09-06：原注记误写 GLM-5.2，已改）
   l3_antagonist:
     name: 三审·对抗审计
     stage: 3
@@ -302,8 +302,8 @@ tool_seats: # 工具席位：不参与三审程序，router 分派/审计/裁决
     cli: glm-vision  # read <图> "<问题>"（默认模型 glm-5.3-flash；失败升级 kimi-k3 不变）
     connected: true
     enabled: true
-    price: {in: 1.5, out: 4.5}
-    price_cache: 0.0
+    price: {in: 0.8, out: 2.8}  # T11 2026-09-06 修正：随 9/2 模型切换同步 glm-5.3-flash 价（原残留 ds-v4-flash-vision-exp 的 1.5/4.5）
+    price_cache: 0.23
     alternates: [kimi-k3]
   video_read:
     name: 视觉专属席·视频理解
@@ -314,15 +314,9 @@ tool_seats: # 工具席位：不参与三审程序，router 分派/审计/裁决
     enabled: true
     price: {in: 0.8, out: 2.8}
     price_cache: 0.23
-    note: "视频/图片多模态理解（Ox Alpha 2026-08-26 智谱官方认领；1M 上下文；UI 动效复现/验收证据用；不走三审程序；成本独立记账；price_verified_at 2026-08-27 联网核验）"
-    note: "读图默认=ds-v4-flash-vision-exp（老板 2026-08-24 T1 拍板）；失败/读图不清升级 Kimi Vision(kimi-k3)；qwen-vl-plus 弃用默认；价格按 deepseek-v4-flash 峰谷待官方核验(price_verified_at D+7=2026-08-31)" 
-    note: 老板 2026-08-15 T1 拍板：看图优先调用、不走三审程序（视觉是输入通道，
-          不是生产/审计/裁决任务）；官方价 输入 0.8/输出 2（华北2北京，缓存命中
-          0.16、Batch 0.4/1、RPM 1200/TPM 100 万，2026-08-15 官方页核验），
-          九方厂商最便宜看图模型；GLM-4.6V-Flash/4.7-Flash 免费视觉弃用不恢复；
-          成本独立记账（视觉专款），读图结果交承办编码；注意 model=qwen-vl-plus
-          是 API 模型 ID，cli=qwen-vision 是桥接命令名（同 l1_antagonist 的
-          hunyuan-hy3 模型 ID + hunyuan-audit 命令名同构），二者是不同维度不冲突
+    note: |
+      视频/图片多模态理解（Ox Alpha 2026-08-26 智谱官方认领；1M 上下文；UI 动效复现/验收证据用；不走三审程序；成本独立记账；2026-08-27 联网核验）。
+      历史注记（T11 2026-09-06 合并去重）：读图默认曾为 ds-v4-flash-vision-exp（2026-08-24 拍板）/qwen-vl-plus（更早弃用）——2026-09-02 老板 T1 全线替换为 glm-5.3-flash，vision_read/video_read 均以 model 字段为准；官方价 输入 0.8/输出 2（华北2北京，缓存命中 0.16、Batch 0.4/1，2026-08-15 核验），读图失败升级 kimi-k3；成本独立记账（视觉专款）
   image_gen:
     name: 视觉专属席·文生图
     role: tool
