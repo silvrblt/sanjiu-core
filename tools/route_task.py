@@ -77,6 +77,8 @@ def load_rules():
     try:
         with open(locate_rules(), encoding="utf-8") as f:
             rules = yaml.safe_load(f)
+    except OSError as e:
+        raise ConfigError(f"routing_rules.yaml 读取失败: {e}")
     except yaml.YAMLError as e:
         raise ConfigError(f"routing_rules.yaml 解析失败: {e}")
     if not isinstance(rules, dict):
@@ -100,6 +102,8 @@ def load_models(path=None):
     try:
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
+    except OSError as e:
+        raise ConfigError(f"sanjiu-models.yaml 读取失败: {e}")
     except yaml.YAMLError as e:
         raise ConfigError(f"sanjiu-models.yaml 解析失败: {e}")
     pool = (data or {}).get("candidate_pool")
@@ -267,6 +271,8 @@ def ui_design_decision(models_yaml, exclude_vendor=None):
         note += f"；exclude_vendor={sorted(ex)} 过滤后取剩余档"
         if unknown:
             note += f"；[警告] {unknown} vendor 未在 verified_models 登记，未参与过滤"
+    # N4：展示序 = share 降序（同 share 按 tier 名），recommended 不依赖 yaml 列表原序
+    tiers = sorted(tiers, key=lambda x: (-float(x.get("share", 0)), str(x.get("tier", ""))))
     if not tiers:
         return {"decision": "manual", "recommended": None, "candidates": [],
                 "note": f"ui_design 无可用 Tier（exclude_vendor={exclude_vendor} 过滤后为空），人工指派"}
@@ -292,8 +298,10 @@ def tool_seat_decision(ttype, models_yaml, exclude_vendor=None):
     alternates = seat.get("alternates") if isinstance(seat.get("alternates"), list) else []
     primary = {"model": seat["model"], "cli": seat.get("cli"), "note": "工具席不走审级（视觉三级验收/独立记账）"}
     note = f"{ttype} = 工具席 {tool}（tool_seats 唯一事实源），非审级候选池；失败升级链不做异厂过滤"
-    if exclude_vendor and _vendor_of(models_yaml, seat["model"]) == exclude_vendor:
-        note += f"；[提示] primary 与 exclude_vendor={exclude_vendor} 同厂——工具席不受审级异厂约束，若需异厂替代请人工指定"
+    ex = _norm_excludes(exclude_vendor)  # N2：list 归一化后判断同厂
+    pv = _vendor_of(models_yaml, seat["model"])
+    if pv and pv in ex:
+        note += f"；[提示] primary 与 exclude_vendor={sorted(ex)} 同厂——工具席不受审级异厂约束，若需异厂替代请人工指定"
     return {
         "decision": "tool_seat",
         "tool_seat": tool,
@@ -559,34 +567,45 @@ def self_test():
           "threshold='x' 回退 5 → hist=9 触发 B（Q10）",
           "threshold 防御: 'x' 应回退 5 且 hist=9 触发")
 
-    # ---- 段 6：副本一致性（Q4：固定预期副本清单——存在即比 sha256，缺失显式 skip；env 可覆盖路径）----
-    print("== 段 6：副本 sha256 一致性（P5 防漂移；缺失=skipped）==")
-    here_sha = _file_sha256(os.path.abspath(__file__))
-    # 预期副本：主仓 court/tools + 运行位 eep-tools；默认布局 = 主仓上两级 00_global-shared/tools/eep-tools
+    # ---- 段 6：副本一致性（N1：所有副本与 court 权威锚定比较——从任何位置跑都防自比自）----
+    print("== 段 6：副本 sha256 一致性（P5 防漂移；对照基准 = court 权威；缺失=skipped）==")
     core_root = os.environ.get("SANJIU_CORE_ROOT") or (_find_core_root(HERE) or "")
     eep_dir = os.environ.get("SANJIU_EEP_DIR") or (os.path.join(os.path.dirname(os.path.dirname(core_root)), "tools", "eep-tools") if core_root else "")
-    expected_peers = []
-    if core_root:
-        expected_peers.append(("主仓 tools/route_task.py", os.path.join(core_root, "tools", "route_task.py")))
-    if eep_dir:
-        expected_peers.append(("运行位 tools/eep-tools/route_task.py", os.path.join(eep_dir, "route_task.py")))
-        expected_peers.append(("运行位 tools/eep-tools/routing_rules.yaml", os.path.join(eep_dir, "routing_rules.yaml")))
-    if not expected_peers:
-        skip("段 6（无仓根/运行位定位：SANJIU_CORE_ROOT/SANJIU_EEP_DIR 未设且探测失败）")
-    seen = set()
-    for label, p in expected_peers:
-        ap = os.path.abspath(p)
-        if ap in seen:
-            continue
-        seen.add(ap)
-        if not os.path.exists(p):
-            skip(f"{label}（{p} 不存在）")
-            continue
-        if "routing_rules.yaml" in p:
-            same = _file_sha256(p) == _file_sha256(locate_rules())
+    peers = []
+    rules_peers = []
+    authority_route = os.path.join(core_root, "tools", "court", "route_task.py") if core_root else ""
+    authority_rules = os.path.join(core_root, "tools", "court", "routing_rules.yaml") if core_root else ""
+    if not authority_route:
+        skip("段 6（无仓根定位：SANJIU_CORE_ROOT 未设且 _find_core_root 探测失败）")
+    else:
+        if not os.path.exists(authority_route):
+            failures.append(f"权威文件缺失: {authority_route}")  # N1：权威缺失显式失败，不宽松通过
+            print(f"  ✗ 权威文件缺失: {authority_route}")
         else:
-            same = _file_sha256(p) == here_sha
-        check(same, f"{label} 一致", f"副本漂移: {label}（{p}）")
+            auth_sha = _file_sha256(authority_route)
+            peers.append(("主仓 tools/route_task.py", os.path.join(core_root, "tools", "route_task.py")))
+            if eep_dir:
+                peers.append(("运行位 tools/eep-tools/route_task.py", os.path.join(eep_dir, "route_task.py")))
+                rules_peers.append(("运行位 tools/eep-tools/routing_rules.yaml", os.path.join(eep_dir, "routing_rules.yaml")))
+            for label, p in peers:
+                ap = os.path.abspath(p)
+                if ap == os.path.abspath(authority_route):
+                    continue  # 权威自身非副本
+                if not os.path.exists(p):
+                    skip(f"{label}（{p} 不存在）")
+                    continue
+                check(_file_sha256(p) == auth_sha, f"{label} 与权威一致",
+                      f"副本漂移: {label}（{p}）vs 权威 {authority_route}，N1 权威锚定")
+            rules_auth_sha = _file_sha256(authority_rules) if os.path.exists(authority_rules) else ""
+            for label, p in rules_peers:
+                if not os.path.exists(p):
+                    skip(f"{label}（{p} 不存在）")
+                    continue
+                if not rules_auth_sha:
+                    failures.append(f"权威 rules 缺失: {authority_rules}")
+                    continue
+                check(_file_sha256(p) == rules_auth_sha, f"{label} 与权威 rules 一致",
+                      f"副本漂移: {label}（{p}）vs 权威 {authority_rules}")
 
     total = passed + len(failures) + skipped
     print(f"回测: {passed}/{total} 通过，{len(failures)} 失败，{skipped} 跳过（动态计数）")
