@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""route_task.py — 立案庭路由（审级组合分流 + 类型路由消费，v1.2.2 2026-09-06 三审终核二轮补正）
+"""route_task.py — 立案庭路由（审级组合分流 + 类型路由消费，v1.2.3 2026-09-06 补复核收口版）
 
 两层：
   1. 审级组合分流（审级组合需求 v6 定稿 2026-09-03）：domain/scale/type/history → 组合 A/B/A_exception/C_trigger
@@ -19,6 +19,9 @@
        Q4 段 6 固定预期副本清单 + env 覆盖 / Q5 sync-local 2b2 证据入审计记录 /
        Q6 ui_design 输出 selection_policy / Q7 exclude_vendor 支持 list / Q8 未知 vendor 警告 /
        Q9 video_read.note 价格口径 / Q10 _threshold 非法回退 / Q11 sha256 + with open + 全 inf 不变量收口
+     v1.2.3（qwen 恢复补复核 N1-N5 收口，2026-09-06）：N1 段 6 副本校验锚定 court 权威（防自比自）/
+       N2 tool_seat 同厂提示 list 归一化 / N3 IO 异常 OSError→ConfigError 兜底 /
+       N4 ui_design 展示序 share 降序 / N5 rules 全文证据入审计链记录
 
 依赖：PyYAML ≥ 5.0（pip install pyyaml）；其余仅标准库。
 
