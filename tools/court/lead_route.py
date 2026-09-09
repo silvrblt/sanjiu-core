@@ -51,6 +51,8 @@ DEFAULT_MAX_TOKENS = 16384
 DEFAULT_TIMEOUT_S = 900
 ASK_ARGV_LIMIT = 200          # argv 诉求截断（P6：全量由 payload 文件承载）
 STDERR_PREVIEW_LIMIT = 300    # 错误输出预览截断
+CHAIN_ERR_PREVIEW_LIMIT = 200  # chain.err 预览截断
+ERROR_SUMMARY_LIMIT = 150      # errors 摘要截断
 MIN_VALID_OUTPUT_LENGTH = 20  # 最短有效产出字符数（过滤空回复/仅标点问候等无效输出）
 _lead_call = None  # 可注入调用函数（单测 mock 用）；None = 默认 call_lead
 
@@ -104,7 +106,7 @@ def resolve_cli(models_yaml, model, vendor):
 
 def build_payload(task, ttype, troute, prompt_path):
     """承办输入文件 + system 提示词组装。"""
-    ask = " ".join(str(task.get(k, "")) for k in ("title", "description", "prompt")) or task.get("type", "")
+    ask = " ".join(str(task.get(k) or "") for k in ("title", "description", "prompt")).strip() or str(task.get("type") or "")
     payload = {
         "task": {k: task.get(k) for k in ("title", "description", "prompt", "type", "domain", "scale") if task.get(k)},
         "task_type": ttype,
@@ -119,25 +121,29 @@ def call_lead(cli, api_id, payload_file, ask, system, max_tokens):
     t0 = time.time()
     try:
         timeout_s = int(os.environ.get("LEAD_ROUTE_TIMEOUT_S", str(DEFAULT_TIMEOUT_S)))
+        if timeout_s <= 0 or timeout_s > 7200:
+            raise ValueError("out of range")
     except ValueError:
-        return (False, "[bad_timeout_env] LEAD_ROUTE_TIMEOUT_S 非数字",
-                {"fail_class": "bad_timeout_env", "model": api_id, "cli": cli})  # MAJ-2
+        return (False, "[bad_timeout_env] LEAD_ROUTE_TIMEOUT_S 非法（须 1-7200）",
+                {"fail_class": "bad_timeout_env", "model": api_id, "cli": cli, "wait_s": 0.0,
+                 "usage": None})  # AUD-11
     cmd = [cli, "audit", payload_file, (ask or "")[:ASK_ARGV_LIMIT], "--system", system,
            "--model", api_id, "--max-tokens", str(max_tokens), "--no-compress", "--json"]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s,
+                            encoding="utf-8", errors="replace")  # AUD-16
     except subprocess.TimeoutExpired:
         return (False, f"[timeout] 桥接调用超时（{timeout_s}s）",
-                {"fail_class": "timeout", "model": api_id, "cli": cli,
+                {"fail_class": "timeout", "model": api_id, "cli": cli, "usage": None,
                  "wait_s": round(time.time() - t0, 1)})  # MAJ-1：动态超时文案
     except (subprocess.SubprocessError, OSError) as e:
         fc = "cli_missing" if isinstance(e, FileNotFoundError) else "subprocess_error"
         return (False, f"[cli_error] {type(e).__name__}: {e}",
-                {"fail_class": fc, "model": api_id, "cli": cli,
+                {"fail_class": fc, "model": api_id, "cli": cli, "usage": None,
                  "wait_s": round(time.time() - t0, 1)})
     if r.returncode != 0:
         return (False, f"[exit {r.returncode}] {r.stderr[:STDERR_PREVIEW_LIMIT] or r.stdout[:STDERR_PREVIEW_LIMIT]}",
-                {"fail_class": "nonzero_exit", "model": api_id, "cli": cli,
+                {"fail_class": "nonzero_exit", "model": api_id, "cli": cli, "usage": None,
                  "wait_s": round(time.time() - t0, 1)})
     out = r.stdout
     try:
@@ -145,7 +151,11 @@ def call_lead(cli, api_id, payload_file, ask, system, max_tokens):
     except Exception as e:
         return (False, f"[json_parse] 桥接输出非 JSON: {e}",
                 {"fail_class": "json_parse", "model": api_id, "cli": cli,
-                 "wait_s": round(time.time() - t0, 1)})
+                 "wait_s": round(time.time() - t0, 1), "usage": None})
+    if not isinstance(j, dict):  # AUD-06：对象类型校验
+        return (False, "[json_schema] 桥接输出 JSON 非对象",
+                {"fail_class": "json_schema", "model": api_id, "cli": cli,
+                 "wait_s": round(time.time() - t0, 1), "usage": None})
     content = j.get("content", "")
     if not isinstance(content, str) or not content.strip() or len(content.strip()) < MIN_VALID_OUTPUT_LENGTH:
         return (False, f"[empty] 产出为空或无效（len={len(str(content))}）",
@@ -154,6 +164,9 @@ def call_lead(cli, api_id, payload_file, ask, system, max_tokens):
     meta = {"cli": cli, "model": j.get("model") or api_id, "usage": j.get("usage"),
             "wait_s": j.get("wait_s") or round(time.time() - t0, 1),
             "fail_class": j.get("fail_class") or "ok"}
+    if meta["fail_class"] != "ok":  # AUD-05：子进程声明失败不得判成功
+        return (False, f"[child_{meta['fail_class']}] 桥接子进程声明失败",
+                meta)
     return True, content, meta
 
 
@@ -197,8 +210,9 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
     forced = bool(force_model)
     in_pool = False
     unverified_force = False
+    fm_norm = str(force_model or "").strip().lower()
     if force_model:
-        cand = next((c for c in candidates if c.get("model") == force_model), None)
+        cand = next((c for c in candidates if str(c.get("model") or "").strip().lower() == fm_norm), None)  # AUD-13
         if cand:
             candidates = [cand]  # P1-3：池内命中 = 人工指定达标候选，非"非官方候选池"
             in_pool = True
@@ -216,7 +230,8 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
             cli, api_id, mt, api_src = resolve_cli(models_yaml, c.get("model"), c.get("vendor"))
             chain.append({"model": c.get("model"), "cli": cli, "api_id": api_id, "ok": bool(cli),
                           "dry_run": True, "api_id_source": api_src,
-                          "api_id_unverified": api_src == "vendor_inferred" or (forced and not in_pool and bool(cli))})
+                          "api_id_unverified": (forced and not in_pool and bool(cli))
+                          or (bool(cli) and api_src == "vendor_inferred")})  # AUD-02：none/session 不标
         first = next((c for c in chain if c.get("ok")), None)
         if not first:
             return 3, {"decision": "ranked", "task_type": ttype, "model": None, "chain": chain,
@@ -225,7 +240,8 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
         any_unv = any(c.get("api_id_unverified") for c in chain)
         return 0, {"decision": "ranked", "task_type": ttype, "model": first["model"], "cli": first["cli"],
                    "chain": chain, "out": out_path, "dry_run": True, "forced": forced, "in_pool": in_pool,
-                   "selected_api_id_unverified": any_unv, "any_api_id_unverified": any_unv,
+                   "selected_api_id_unverified": bool(first.get("api_id_unverified")),  # AUD-03：仅选中候选
+                   "any_api_id_unverified": any_unv,
                    "duration_s": round(time.time() - started, 1)}
 
     # B2（P2-5 终裁）：非池 force 真实调用需显式授权（--allow-unverified-force），缺省 exit2 不真调
@@ -238,6 +254,10 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
         return 2, {"decision": "manual", "task_type": ttype,
                    "note": "真实承办调用必须 --out <产出回收路径>（产出落盘契约）", "chain": chain,
                    "duration_s": round(time.time() - started, 1)}
+    if os.path.isdir(out_path):  # AUD-07：目录前置拦截（含 --overwrite 场景）
+        return 2, {"decision": "manual", "task_type": ttype,
+                   "note": f"产出路径是目录（{out_path}）——须指定文件路径", "chain": chain,
+                   "duration_s": round(time.time() - started, 1)}
     if os.path.exists(out_path) and not overwrite:
         return 2, {"decision": "manual", "task_type": ttype,
                    "note": f"产出路径已存在（{out_path}）——加 --overwrite 覆盖或更换路径", "chain": chain,
@@ -248,13 +268,19 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                    "note": f"产出目录不存在或不可写（{out_dir}）", "chain": chain,
                    "duration_s": round(time.time() - started, 1)}
     # P0-2：mkstemp 唯一 0600 payload（A5/A7），异常入兜底
+    payload_file = None
     try:
         fd, payload_file = tempfile.mkstemp(prefix="lead-", suffix=".task.json")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=1)
     except OSError as e:
+        if payload_file:
+            try:
+                os.unlink(payload_file)  # AUD-08：dump 异常统一清理
+            except OSError:
+                pass
         return 3, {"decision": "ranked", "task_type": ttype, "model": None, "chain": chain,
-                   "errors": [f"payload 临时文件创建失败: {e}"], "note": "payload 落盘失败",
+                   "errors": [f"payload 临时文件创建/写入失败: {e}"], "note": "payload 落盘失败",
                    "duration_s": round(time.time() - started, 1)}
     errors = []
     try:
@@ -263,18 +289,19 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
             vendor = c.get("vendor")
             cli, api_id, mt, api_src = resolve_cli(models_yaml, model, vendor)
             if not cli:
+                fc = "session_seat" if api_src == "session_seat" else ("no_cli" if api_src == "none" else "no_cli")
                 errors.append(f"{model}: 无可用桥接 CLI（vendor={vendor}, source={api_src}）")
                 chain.append({"model": model, "cli": None, "api_id": None, "api_id_source": api_src,
-                              "api_id_unverified": api_src in ("vendor_inferred", "none", "session_seat"),
-                              "ok": False, "err": "无 CLI",
-                              "meta": {"fail_class": "session_seat" if api_src == "session_seat" else "no_cli"}})
+                              "api_id_unverified": False,  # AUD-02：none/session 非 unverified，用 fail_class 表达
+                              "blocked_reason": fc, "ok": False, "err": "无 CLI",
+                              "meta": {"fail_class": fc, "model": model, "usage": None, "wait_s": 0.0}})
                 continue
             print(f"[lead] 承办候选: {model} via {cli} --model {api_id}", file=sys.stderr)
             caller = _lead_call or call_lead
             ok, content, meta = caller(cli, api_id, payload_file, payload["诉求"], system, mt)
             chain.append({"model": model, "cli": cli, "api_id": api_id, "api_id_source": api_src,
-                          "api_id_unverified": (forced and not in_pool) or api_src in ("vendor_inferred", "none"),
-                          "ok": ok, "err": None if ok else content[:200], "meta": meta})
+                          "api_id_unverified": (forced and not in_pool) or api_src == "vendor_inferred",  # AUD-02
+                          "ok": ok, "err": None if ok else content[:CHAIN_ERR_PREVIEW_LIMIT], "meta": meta})
             if ok:
                 try:
                     if out_path:
@@ -289,7 +316,7 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                            "chain": chain, "out": out_path, "forced": forced, "in_pool": in_pool,
                            "duration_s": round(time.time() - started, 1),
                            "note": f"承办产出由 {model} 生成（类型路由推荐/降级链第 {len(chain)} 位）{note_forced}"}
-            errors.append(f"{model}: {content[:150]}")
+            errors.append(f"{model}: {content[:ERROR_SUMMARY_LIMIT]}")
     finally:
         try:
             os.unlink(payload_file)  # 敏感任务信息临时文件清理（全路径）
@@ -383,19 +410,22 @@ def self_test():
     code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path=None)
     check(code == 2, "真实调用无 --out → exit 2（P0-1）", f"P0-1 实得 {code}")
 
-    # ② mock 全失败 → 降级链走完 → exit 3
-    _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (False, "[mock] 网关失败", {})
-    code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path="/tmp/lead-mock-out.md")
-    check(code == 3 and len(r.get("chain", [])) >= 3, "mock 全败 → exit 3 + 降级链记录",
-          f"mock 全败实得 {code} chain={len(r.get('chain', []))}")
-    check(not os.path.exists("/tmp/lead-mock-out.md"), "全败不产生产出文件", "全败残留产出文件")
+    # ② mock 全失败 → 降级链走完 → exit 3（AUD-10：TemporaryDirectory）
+    import tempfile as _tf
+    with _tf.TemporaryDirectory(prefix="lead-test-") as _td:
+        _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (False, "[mock] 网关失败", {})
+        _out1 = os.path.join(_td, "out.md")
+        code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path=_out1)
+        check(code == 3 and len(r.get("chain", [])) >= 3, "mock 全败 → exit 3 + 降级链记录",
+              f"mock 全败实得 {code} chain={len(r.get('chain', []))}")
+        check(not os.path.exists(_out1), "全败不产生产出文件", "全败残留产出文件")
 
-    # ③ mock 成功 → exit 0 + 产出落盘
-    _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (True, "# 承办产出 mock\n完整内容", {"usage": {"total_tokens": 100}})
-    code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path="/tmp/lead-mock-ok.md")
-    check(code == 0 and os.path.exists("/tmp/lead-mock-ok.md") and "承办产出 mock" in open("/tmp/lead-mock-ok.md").read(),
-          "mock 成功 → exit 0 + 产出落盘", f"mock 成功实得 {code}")
-    os.unlink("/tmp/lead-mock-ok.md")
+        # ③ mock 成功 → exit 0 + 产出落盘
+        _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (True, "# 承办产出 mock\n完整内容", {"usage": {"total_tokens": 100}})
+        _out2 = os.path.join(_td, "ok.md")
+        code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path=_out2)
+        check(code == 0 and os.path.exists(_out2) and "承办产出 mock" in open(_out2).read(),
+              "mock 成功 → exit 0 + 产出落盘", f"mock 成功实得 {code}")
 
     # ④ LEAD_PROMPT 缺失 → exit 2（A6）
     saved_prompt = globals()["LEAD_PROMPT"]
