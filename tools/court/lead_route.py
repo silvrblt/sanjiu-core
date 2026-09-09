@@ -73,26 +73,23 @@ def _vendor_by_prefix(model):
 
 
 def resolve_cli(models_yaml, model, vendor):
-    """model → (cli, api_id)：seats 九席精确命中优先（取其 cli/api_id/max_tokens）；
-    cli=session 的席位（一审承办=窗口会话）模型禁止 vendor 推断——防同模型双通道（API 再调一次
-    窗口模型 = 换汤不换药）与语义自环（DS Pro 三轮问题1）。
-    miss（非现役候选）→ vendor 推断，api_id = 模型名（未验证标记由调用方打）。"""
+    """model → (cli, api_id, max_tokens, api_id_source)：seats 两段式解析——
+    ① 目标模型命中任何 cli=session 席位 → 直接不可桥接（P3 防同模型外部席位绕过/自环）；
+    ② 非 session 席位命中 → 取其 cli/api_id/max_tokens（source=seats）；
+    miss（非现役候选）→ vendor 推断（source=vendor_inferred，api_id=模型名未验证——调用方须标记）。
+    session 席模型禁止 vendor 推断——防同模型双通道（API 再调窗口模型 = 换汤不换药）。"""
     seats = models_yaml.get("seats") or {}
-    session_models = set()
     for seat in seats.values():
-        if isinstance(seat, dict) and seat.get("model") == model:
-            cli = seat.get("cli")
-            if cli == "session":
-                session_models.add(model)
-                continue
-            if cli:
-                return cli, seat.get("api_id") or model, seat.get("max_tokens") or DEFAULT_MAX_TOKENS
-    if model in session_models:  # 现役 session 席模型 → 不可桥接
-        return None, None, DEFAULT_MAX_TOKENS
+        if isinstance(seat, dict) and seat.get("model") == model and seat.get("cli") == "session":
+            return None, None, DEFAULT_MAX_TOKENS, "session_seat"
+    for seat in seats.values():
+        if isinstance(seat, dict) and seat.get("model") == model and seat.get("cli"):
+            return (seat.get("cli"), seat.get("api_id") or model,
+                    seat.get("max_tokens") or DEFAULT_MAX_TOKENS, "seats")
     cli = VENDOR_CLI.get(vendor)
     if not cli:
-        return None, None, DEFAULT_MAX_TOKENS
-    return cli, model, DEFAULT_MAX_TOKENS
+        return None, None, DEFAULT_MAX_TOKENS, "none"
+    return cli, model, DEFAULT_MAX_TOKENS, "vendor_inferred"
 
 
 def build_payload(task, ttype, troute, prompt_path):
@@ -108,30 +105,32 @@ def build_payload(task, ttype, troute, prompt_path):
 
 
 def call_lead(cli, api_id, payload_file, ask, system, max_tokens):
-    """调桥接 CLI 承办模式。返回 (ok, stdout_text)。"""
-    cmd = [cli, "audit", payload_file, ask, "--system", system,
+    """调桥接 CLI 承办模式。返回 (ok, content, meta)；meta 含 usage/model/wait_s（B4 成本记账）。"""
+    cmd = [cli, "audit", payload_file, (ask or "")[:200], "--system", system,  # P6：argv 截断，全量由 payload 文件承载
            "--model", api_id, "--max-tokens", str(max_tokens), "--no-compress", "--json"]
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                            timeout=int(os.environ.get("LEAD_ROUTE_TIMEOUT_S", "900")))
     except subprocess.TimeoutExpired:
-        return False, "[timeout] 桥接调用超时（600s）"
+        return False, "[timeout] 桥接调用超时（600s）", {}
     except (subprocess.SubprocessError, OSError) as e:
-        return False, f"[cli_error] {type(e).__name__}: {e}"  # CLI 缺失/权限等 → 进降级链
+        return False, f"[cli_error] {type(e).__name__}: {e}", {}  # CLI 缺失/权限等 → 进降级链
     if r.returncode != 0:
-        return False, f"[exit {r.returncode}] {r.stderr[:300] or r.stdout[:300]}"
+        return False, f"[exit {r.returncode}] {r.stderr[:300] or r.stdout[:300]}", {}
     out = r.stdout
     # bridge --json 输出必须含 content 键；缺失/非 JSON = 调用失败（A3：禁止 fallback 原始 JSON 串污染产出）
     try:
         j = json.loads(out)
     except Exception as e:
-        return False, f"[json_parse] 桥接输出非 JSON: {e}"
+        return False, f"[json_parse] 桥接输出非 JSON: {e}", {}
     content = j.get("content", "")
     if not isinstance(content, str) or not content.strip() or len(content.strip()) < MIN_VALID_OUTPUT_LENGTH:
         return False, "[empty] 产出为空或无效"
     return True, content
 
 
-def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_run=False):
+def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_run=False,
+                             allow_unverified_force=False, overwrite=False):
     """主流程：决策分流 + ranked 桥接承办。返回 (exit_code, result_dict)。"""
     ttype = classify_type(task)
     exclude = task.get("exclude_vendor")
@@ -167,6 +166,7 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
     candidates = troute.get("candidates", [])
     forced = bool(force_model)
     in_pool = False
+    unverified_force = False
     if force_model:
         cand = next((c for c in candidates if c.get("model") == force_model), None)
         if cand:
@@ -177,15 +177,16 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
             vendor = _vendor_by_prefix(force_model)
             candidates = [{"model": force_model, "vendor": vendor, "price_in": None, "price_out": None}]
             in_pool = False
+            unverified_force = True
     note_forced = "" if not (forced and not in_pool) else "；[人工强制指定模型（非官方候选池），结果需核验]"
 
     # A8：dry-run 不落盘——仅解析决策链（无副作用）；问题4：非池 force api_id 未验证标记
     if dry_run:
         for c in candidates:
-            cli, api_id, mt = resolve_cli(models_yaml, c.get("model"), c.get("vendor"))
+            cli, api_id, mt, api_src = resolve_cli(models_yaml, c.get("model"), c.get("vendor"))
             chain.append({"model": c.get("model"), "cli": cli, "api_id": api_id, "ok": bool(cli),
-                          "dry_run": True,
-                          "api_id_unverified": forced and not in_pool and bool(cli)})
+                          "dry_run": True, "api_id_source": api_src,
+                          "api_id_unverified": api_src == "vendor_inferred" or (forced and not in_pool and bool(cli))})
         first = next((c for c in chain if c.get("ok")), None)
         if not first:
             return 3, {"decision": "ranked", "task_type": ttype, "model": None, "chain": chain,
@@ -195,6 +196,11 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                    "chain": chain, "out": out_path, "dry_run": True, "forced": forced, "in_pool": in_pool,
                    "duration_s": round(time.time() - started, 1)}
 
+    # B2（P2-5 终裁）：非池 force 真实调用需显式授权（--allow-unverified-force），缺省 exit2 不真调
+    if unverified_force and not dry_run and not allow_unverified_force:
+        return 2, {"decision": "manual", "task_type": ttype,
+                   "note": "非候选池 --force-model 默认不真调（api_id 未验证）：加 --allow-unverified-force 显式授权后可尝试一次，或改用候选池模型/先 --dry-run 校验", "chain": chain,
+                   "duration_s": round(time.time() - started, 1)}
     # P0-1：真实调用必须指定 --out（产出落盘契约；dry-run 已在上方返回）
     if not out_path:
         return 2, {"decision": "manual", "task_type": ttype,
@@ -214,19 +220,24 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
         for c in candidates:
             model = c.get("model")
             vendor = c.get("vendor")
-            cli, api_id, mt = resolve_cli(models_yaml, model, vendor)
+            cli, api_id, mt, api_src = resolve_cli(models_yaml, model, vendor)
             if not cli:
                 errors.append(f"{model}: 无可用桥接 CLI（vendor={vendor}）")
                 chain.append({"model": model, "ok": False, "err": "无 CLI"})
                 continue
             print(f"[lead] 承办候选: {model} via {cli} --model {api_id}", file=sys.stderr)
             caller = _lead_call or call_lead
-            ok, content = caller(cli, api_id, payload_file, payload["诉求"], system, mt)
-            chain.append({"model": model, "cli": cli, "api_id": api_id, "ok": ok,
-                          "err": None if ok else content[:200]})
+            ok, content, meta = caller(cli, api_id, payload_file, payload["诉求"], system, mt)
+            chain.append({"model": model, "cli": cli, "api_id": api_id, "api_id_source": api_src,
+                          "api_id_unverified": api_src == "vendor_inferred", "ok": ok,
+                          "err": None if ok else content[:200], "meta": meta})
             if ok:
                 try:
                     if out_path:
+                        if os.path.exists(out_path) and not overwrite:  # P10：防误覆盖
+                            errors.append(f"{model}: 产出路径已存在（{out_path}）——加 --overwrite 覆盖")
+                            chain[-1]["err"] = "exists_no_overwrite"
+                            continue
                         with open(out_path, "w", encoding="utf-8") as f:
                             f.write(content)
                 except OSError as e:
@@ -319,9 +330,9 @@ def self_test():
     fake_yaml["seats"] = dict(models_yaml.get("seats") or {})
     fake_yaml["seats"]["l1_lead"] = {"model": "deepseek-v4-flash", "cli": "session",
                                      "api_id": "deepseek-v4-flash", "max_tokens": 16384}
-    cli, api_id, mt = resolve_cli(fake_yaml, "deepseek-v4-flash", "deepseek")
-    check(cli is None, "session 席模型（deepseek-v4-flash）→ 无 CLI（防自环）",
-          f"session 防自环失败: cli={cli}")
+    cli, api_id, mt, api_src = resolve_cli(fake_yaml, "deepseek-v4-flash", "deepseek")
+    check(cli is None and api_src == "session_seat", "session 席模型（deepseek-v4-flash）→ 无 CLI（防自环）",
+          f"session 防自环失败: cli={cli} src={api_src}")
 
     # ---- P1-4：异常/真实路径单测（mock _lead_call 注入，不真调外部模型）----
     print("== 异常路径（mock）==")
@@ -333,14 +344,14 @@ def self_test():
     check(code == 2, "真实调用无 --out → exit 2（P0-1）", f"P0-1 实得 {code}")
 
     # ② mock 全失败 → 降级链走完 → exit 3
-    _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (False, "[mock] 网关失败")
+    _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (False, "[mock] 网关失败", {})
     code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path="/tmp/lead-mock-out.md")
     check(code == 3 and len(r.get("chain", [])) >= 3, "mock 全败 → exit 3 + 降级链记录",
           f"mock 全败实得 {code} chain={len(r.get('chain', []))}")
     check(not os.path.exists("/tmp/lead-mock-out.md"), "全败不产生产出文件", "全败残留产出文件")
 
     # ③ mock 成功 → exit 0 + 产出落盘
-    _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (True, "# 承办产出 mock\n完整内容")
+    _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (True, "# 承办产出 mock\n完整内容", {"usage": {"total_tokens": 100}})
     code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path="/tmp/lead-mock-ok.md")
     check(code == 0 and os.path.exists("/tmp/lead-mock-ok.md") and "承办产出 mock" in open("/tmp/lead-mock-ok.md").read(),
           "mock 成功 → exit 0 + 产出落盘", f"mock 成功实得 {code}")
@@ -373,10 +384,13 @@ def main():
         out_path = None
         force_model = None
         dry_run = False
+        allow_unverified_force = False
+        overwrite = False
         args = sys.argv[2:]
         while args:
             a = args.pop(0)
             if a in ("--out", "--force-model") and not args:
+                print(json.dumps({"decision": "error", "note": f"参数错误：{a} 需指定值"}, ensure_ascii=False))
                 print(f"✗ 参数错误：{a} 需指定值", file=sys.stderr)
                 sys.exit(2)
             if a == "--out":
@@ -385,16 +399,23 @@ def main():
                 force_model = args.pop(0)
             elif a == "--dry-run":
                 dry_run = True
+            elif a == "--allow-unverified-force":
+                allow_unverified_force = True
+            elif a == "--overwrite":
+                overwrite = True
             else:
+                print(json.dumps({"decision": "error", "note": f"未知参数：{a}"}, ensure_ascii=False))
                 print(f"✗ 未知参数：{a}", file=sys.stderr)
                 sys.exit(2)
         rules = load_rules()
         models_yaml = load_models()[0]
     except Exception as e:
+        print(json.dumps({"decision": "error", "note": f"启动错误: {type(e).__name__}: {e}"}, ensure_ascii=False))
         print(f"✗ lead_route 启动错误: {e}", file=sys.stderr)
         sys.exit(2)
     try:
-        code, result = route_and_execute(task, models_yaml, out_path, force_model, dry_run)
+        code, result = route_and_execute(task, models_yaml, out_path, force_model, dry_run,
+                                          allow_unverified_force, overwrite)
     except Exception as e:  # P2-6：统一兜底，退出码语义 0/2/3 不破坏
         result = {"decision": "error", "task_type": "?", "note": f"未预期异常: {type(e).__name__}: {e}"}
         code = 3
