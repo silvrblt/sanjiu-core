@@ -29,6 +29,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -55,6 +56,18 @@ LEAD_PROMPT = os.path.join(HERE, "lead_prompts", "lead-v1.txt")
 def _read(path):
     with open(path, encoding="utf-8") as f:
         return f.read()
+
+
+PREFIX_VENDOR = [  # 模型名前缀 → vendor（force-model 非候选池推断用，A4）
+    ("glm", "zhipu"), ("kimi", "moonshot"), ("hy", "tencent"), ("doubao", "doubao"),
+    ("minimax", "minimax"), ("qwen", "aliyun"), ("deepseek", "deepseek"), ("seedream", "ark")]
+
+
+def _vendor_by_prefix(model):
+    for prefix, vendor in PREFIX_VENDOR:
+        if model.startswith(prefix):
+            return vendor
+    return None
 
 
 def resolve_cli(models_yaml, model, vendor):
@@ -96,15 +109,15 @@ def call_lead(cli, api_id, payload_file, ask, system, max_tokens):
     if r.returncode != 0:
         return False, f"[exit {r.returncode}] {r.stderr[:300] or r.stdout[:300]}"
     out = r.stdout
-    # 从 bridge JSON 提取 content（与各桥接 CLI 输出同构）
+    # bridge --json 输出必须含 content 键；缺失/非 JSON = 调用失败（A3：禁止 fallback 原始 JSON 串污染产出）
     try:
         j = json.loads(out)
-        content = j.get("content", out)
-    except Exception:
-        content = out
-    if not content or len(str(content).strip()) < MIN_VALID_OUTPUT_LENGTH:
-        return False, "[empty] 产出为空"
-    return True, str(content)
+    except Exception as e:
+        return False, f"[json_parse] 桥接输出非 JSON: {e}"
+    content = j.get("content", "")
+    if not isinstance(content, str) or not content.strip() or len(content.strip()) < MIN_VALID_OUTPUT_LENGTH:
+        return False, "[empty] 产出为空或无效"
+    return True, content
 
 
 def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_run=False):
@@ -135,10 +148,11 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                    "chain": chain, "duration_s": round(time.time() - started, 1)}
 
     # ---- ranked：候选依序桥接承办 ----
+    if not os.path.exists(LEAD_PROMPT):  # A6：模板缺失前置校验（不进决策流程才发现）
+        return 2, {"decision": "manual", "task_type": ttype,
+                   "note": f"承办模板缺失：{LEAD_PROMPT}", "chain": chain,
+                   "duration_s": round(time.time() - started, 1)}
     payload, system = build_payload(task, ttype, troute, LEAD_PROMPT)
-    payload_file = out_path + ".task.json" if out_path else os.path.join("/tmp", f"lead-{int(time.time())}.task.json")
-    with open(payload_file, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=1)
     candidates = troute.get("candidates", [])
     forced = False
     if force_model:
@@ -146,51 +160,71 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
         if cand:
             candidates = [cand]
         else:
-            # force 模型不在达标池：构造单元素候选（vendor 按 VENDOR_CLI 键前缀推断），note 标注人工强制
-            vendor = next((v for v in VENDOR_CLI if force_model.startswith(v)), None) or (
-                "moonshot" if force_model.startswith("kimi") else
-                "tencent" if force_model.startswith("hy") else None)
+            # force 模型不在达标池：构造单元素候选（vendor 按前缀映射推断），note 标注人工强制
+            vendor = _vendor_by_prefix(force_model)
             candidates = [{"model": force_model, "vendor": vendor, "price_in": None, "price_out": None}]
         forced = True
-    errors = []
     note_forced = "；[人工强制指定模型，非官方候选池，结果需核验]" if forced else ""
-    for c in candidates:
-        model = c.get("model")
-        vendor = c.get("vendor")
-        cli, api_id, mt = resolve_cli(models_yaml, model, vendor)
-        if not cli:
-            errors.append(f"{model}: 无可用桥接 CLI（vendor={vendor}）")
-            chain.append({"model": model, "ok": False, "err": "无 CLI"})
-            continue
-        chain.append({"model": model, "cli": cli, "api_id": api_id, "ok": True, "dry_run": True})
-        if dry_run:  # 解析验证模式：首选候选即可判定决策正确性
-            try:
-                os.unlink(payload_file)
-            except OSError:
-                pass
-            return 0, {"decision": "ranked", "task_type": ttype, "model": model, "cli": cli,
-                       "chain": chain, "out": out_path, "dry_run": True,
-                       "duration_s": round(time.time() - started, 1)}
-        print(f"[lead] 承办候选: {model} via {cli} --model {api_id}", file=sys.stderr)
-        ok, content = call_lead(cli, api_id, payload_file, payload["诉求"], system, mt)
-        chain.append({"model": model, "cli": cli, "api_id": api_id, "ok": ok,
-                      "err": None if ok else content[:200]})
-        if ok:
-            try:
-                if out_path:
-                    with open(out_path, "w", encoding="utf-8") as f:
-                        f.write(content)
-            finally:
-                os.unlink(payload_file)  # 敏感任务信息临时文件清理（成功路径）
-            return 0, {"decision": "ranked", "task_type": ttype, "model": model, "cli": cli,
-                       "chain": chain, "out": out_path,
-                       "duration_s": round(time.time() - started, 1),
-                       "note": f"承办产出由 {model} 生成（类型路由推荐/降级链第 {len(chain)} 位）{note_forced}"}
-        errors.append(f"{model}: {content[:150]}")
+
+    # A8：dry-run 不落盘——仅解析决策链（无副作用）
+    if dry_run:
+        for c in candidates:
+            cli, api_id, mt = resolve_cli(models_yaml, c.get("model"), c.get("vendor"))
+            chain.append({"model": c.get("model"), "cli": cli, "api_id": api_id, "ok": bool(cli),
+                          "dry_run": True})
+        first = next((c for c in chain if c.get("ok")), None)
+        if not first:
+            return 3, {"decision": "ranked", "task_type": ttype, "model": None, "chain": chain,
+                       "errors": [f"{c.get('model')}: 无可用桥接 CLI" for c in candidates],
+                       "note": "候选全部无可用 CLI（dry-run）", "duration_s": round(time.time() - started, 1)}
+        return 0, {"decision": "ranked", "task_type": ttype, "model": first["model"], "cli": first["cli"],
+                   "chain": chain, "out": out_path, "dry_run": True,
+                   "duration_s": round(time.time() - started, 1)}
+
+    # 真实调用：mkstemp 唯一 0600 payload（A5/A7）
+    fd, payload_file = tempfile.mkstemp(prefix="lead-", suffix=".task.json")
     try:
-        os.unlink(payload_file)  # 敏感任务信息临时文件清理（全败路径）
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=1)
     except OSError:
-        pass
+        os.unlink(payload_file)
+        return 3, {"decision": "ranked", "task_type": ttype, "model": None, "chain": chain,
+                   "errors": ["payload 临时文件创建失败"], "note": "payload 落盘失败",
+                   "duration_s": round(time.time() - started, 1)}
+    errors = []
+    try:
+        for c in candidates:
+            model = c.get("model")
+            vendor = c.get("vendor")
+            cli, api_id, mt = resolve_cli(models_yaml, model, vendor)
+            if not cli:
+                errors.append(f"{model}: 无可用桥接 CLI（vendor={vendor}）")
+                chain.append({"model": model, "ok": False, "err": "无 CLI"})
+                continue
+            print(f"[lead] 承办候选: {model} via {cli} --model {api_id}", file=sys.stderr)
+            ok, content = call_lead(cli, api_id, payload_file, payload["诉求"], system, mt)
+            chain.append({"model": model, "cli": cli, "api_id": api_id, "ok": ok,
+                          "err": None if ok else content[:200]})
+            if ok:
+                try:
+                    if out_path:
+                        with open(out_path, "w", encoding="utf-8") as f:
+                            f.write(content)
+                except OSError as e:
+                    # A2：写盘失败 = 该候选失败，进降级链
+                    errors.append(f"{model}: 产出写盘失败 {e}")
+                    chain[-1]["err"] = f"write_fail: {e}"
+                    continue
+                return 0, {"decision": "ranked", "task_type": ttype, "model": model, "cli": cli,
+                           "chain": chain, "out": out_path,
+                           "duration_s": round(time.time() - started, 1),
+                           "note": f"承办产出由 {model} 生成（类型路由推荐/降级链第 {len(chain)} 位）{note_forced}"}
+            errors.append(f"{model}: {content[:150]}")
+    finally:
+        try:
+            os.unlink(payload_file)  # 敏感任务信息临时文件清理（全路径）
+        except OSError:
+            pass
     # 全败
     return 3, {"decision": "ranked", "task_type": ttype, "model": None,
                "chain": chain, "errors": errors,
@@ -252,6 +286,14 @@ def self_test():
     # force-model
     code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, dry_run=True, force_model="kimi-k2.7-code")
     check(r.get("model") == "kimi-k2.7-code", "force-model=kimi-k2.7-code 生效", f"force 实得 {r.get('model')}")
+    # A4：force 非候选池 + glm 前缀 vendor 推断
+    code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, dry_run=True, force_model="glm-5.3-flash")
+    c0 = (r.get("chain") or [{}])[0]
+    check(r.get("model") == "glm-5.3-flash" and c0.get("cli") == "glm-audit" and c0.get("api_id") == "glm-5.3-flash",
+          "force-model=glm-5.3-flash → glm-audit（A4 前缀推断）", f"A4 实得 {r}")
+    # A4b：无法识别 vendor 的 force → 无 CLI 进降级
+    code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, dry_run=True, force_model="unknown-xyz")
+    check(code == 3, "force-model=unknown-xyz → exit 3（vendor 不可解析）", f"A4b 实得 {code}/{r}")
 
     total = passed + len(failures)
     print(f"lead_route 自测: {passed}/{total} 通过")
