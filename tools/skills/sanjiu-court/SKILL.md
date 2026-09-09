@@ -12,12 +12,13 @@ metadata:
 ## 路由（第一步，必做——自动立案）
 
 1. 任务进入先写任务卡 JSON（含 title/description；type 判定自动；domain/scale/errors_ledger_count
-   可人工标注或省略走默认），运行**自动立案 + 承办路由**：
+   可人工标注或省略走默认），运行**自动立案 + 承办路由（一次调用 = 立案全量）**：
    ```bash
-   python3 00_global-shared/tools/eep-tools/route_task.py <任务卡.json>     # 审级 combo + task_type + type_route 推荐
    python3 00_global-shared/tools/eep-tools/lead_route.py <任务卡.json> --out <承办产出路径>
    ```
-   （`lead_route.py --dry-run` 先看决策不真调；`--force-model` 人工指定承办模型）
+   stdout JSON 含全量字段：combo（审级 A/B/A_exception/C_trigger）+ task_type + type_route
+   + decision + 承办模型；`--dry-run` 先看决策不真调；`--force-model` 人工指定承办模型
+   （非候选池模型将标注"人工强制，结果需核验"）。
 2. **承办模型自动路由（v1.0 关键变化）**：`lead_route` 决策分流——
    - `ranked`：承办产出由类型路由推荐模型经桥接生成（推荐 ≠ 当前窗口模型时**自动换模型承办**，
      窗口会话 = 编排/验收角色；候选失败自动降级链，全败回退会话）；
@@ -43,7 +44,8 @@ metadata:
 
 - 强制域清单任务 100% 到 B（不因组合化降质——老板铁律）；
 - **承办产出一律过 lead_route 路由**（推荐 ≠ 窗口模型即自动换模型；`--force-model` 例外需留痕）；
-  口头小问答（无任务卡）不立案不路由，会话直答；
+  **建卡阈值（D3 执行细则）**：预估产出 ≥300 字 / 需留痕 / 需审级的任务必须建卡走路由；
+  纯工具类短问答（如「XX 命令怎么用」）可直接会话答复，不立案不路由；
 - 视觉/工具席不经审级（视觉三级验收 L1-L3 另行）；
 - 路由结果写入任务卡/决策台账留痕（红线 12：可回溯）；
 - 规则调参：回测 30 任务命中率 ≥90%（A2 验收）后才可改 routing_rules.yaml，改动走审计。
