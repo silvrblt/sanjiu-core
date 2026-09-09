@@ -48,6 +48,7 @@ VENDOR_CLI = {
     "ark": "ark-image",
 }
 DEFAULT_MAX_TOKENS = 16384
+_lead_call = None  # 可注入调用函数（单测 mock 用）；None = 默认 call_lead
 MIN_VALID_OUTPUT_LENGTH = 20  # 最短有效产出字符数（过滤空回复/仅标点问候等无效输出）
 
 LEAD_PROMPT = os.path.join(HERE, "lead_prompts", "lead-v1.txt")
@@ -59,7 +60,8 @@ def _read(path):
 
 
 PREFIX_VENDOR = [  # 模型名前缀 → vendor（force-model 非候选池推断用，A4）
-    ("glm", "zhipu"), ("kimi", "moonshot"), ("hy", "tencent"), ("doubao", "doubao"),
+    ("glm", "zhipu"), ("kimi", "moonshot"), ("hunyuan", "tencent"), ("hy3", "tencent"),
+    ("hy4", "tencent"), ("doubao", "doubao"),
     ("minimax", "minimax"), ("qwen", "aliyun"), ("deepseek", "deepseek"), ("seedream", "ark")]
 
 
@@ -154,17 +156,17 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                    "duration_s": round(time.time() - started, 1)}
     payload, system = build_payload(task, ttype, troute, LEAD_PROMPT)
     candidates = troute.get("candidates", [])
-    forced = False
+    forced_out = False
     if force_model:
         cand = next((c for c in candidates if c.get("model") == force_model), None)
         if cand:
-            candidates = [cand]
+            candidates = [cand]  # P1-3：池内命中 = 人工指定达标候选，非"非官方候选池"
         else:
-            # force 模型不在达标池：构造单元素候选（vendor 按前缀映射推断），note 标注人工强制
+            # force 不在达标池：构造单元素候选（vendor 按前缀映射推断），note 标注人工强制
             vendor = _vendor_by_prefix(force_model)
             candidates = [{"model": force_model, "vendor": vendor, "price_in": None, "price_out": None}]
-        forced = True
-    note_forced = "；[人工强制指定模型，非官方候选池，结果需核验]" if forced else ""
+            forced_out = True
+    note_forced = "；[人工强制指定模型（非官方候选池），结果需核验]" if forced_out else ""
 
     # A8：dry-run 不落盘——仅解析决策链（无副作用）
     if dry_run:
@@ -181,15 +183,19 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                    "chain": chain, "out": out_path, "dry_run": True,
                    "duration_s": round(time.time() - started, 1)}
 
-    # 真实调用：mkstemp 唯一 0600 payload（A5/A7）
-    fd, payload_file = tempfile.mkstemp(prefix="lead-", suffix=".task.json")
+    # P0-1：真实调用必须指定 --out（产出落盘契约；dry-run 已在上方返回）
+    if not out_path:
+        return 2, {"decision": "manual", "task_type": ttype,
+                   "note": "真实承办调用必须 --out <产出回收路径>（产出落盘契约）", "chain": chain,
+                   "duration_s": round(time.time() - started, 1)}
+    # P0-2：mkstemp 唯一 0600 payload（A5/A7），异常入兜底
     try:
+        fd, payload_file = tempfile.mkstemp(prefix="lead-", suffix=".task.json")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=1)
-    except OSError:
-        os.unlink(payload_file)
+    except OSError as e:
         return 3, {"decision": "ranked", "task_type": ttype, "model": None, "chain": chain,
-                   "errors": ["payload 临时文件创建失败"], "note": "payload 落盘失败",
+                   "errors": [f"payload 临时文件创建失败: {e}"], "note": "payload 落盘失败",
                    "duration_s": round(time.time() - started, 1)}
     errors = []
     try:
@@ -202,7 +208,8 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                 chain.append({"model": model, "ok": False, "err": "无 CLI"})
                 continue
             print(f"[lead] 承办候选: {model} via {cli} --model {api_id}", file=sys.stderr)
-            ok, content = call_lead(cli, api_id, payload_file, payload["诉求"], system, mt)
+            caller = _lead_call or call_lead
+            ok, content = caller(cli, api_id, payload_file, payload["诉求"], system, mt)
             chain.append({"model": model, "cli": cli, "api_id": api_id, "ok": ok,
                           "err": None if ok else content[:200]})
             if ok:
@@ -295,6 +302,37 @@ def self_test():
     code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, dry_run=True, force_model="unknown-xyz")
     check(code == 3, "force-model=unknown-xyz → exit 3（vendor 不可解析）", f"A4b 实得 {code}/{r}")
 
+    # ---- P1-4：异常/真实路径单测（mock _lead_call 注入，不真调外部模型）----
+    print("== 异常路径（mock）==")
+    global _lead_call
+    saved = _lead_call
+
+    # ① 无 out_path 真实调用 → exit 2（P0-1）
+    code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path=None)
+    check(code == 2, "真实调用无 --out → exit 2（P0-1）", f"P0-1 实得 {code}")
+
+    # ② mock 全失败 → 降级链走完 → exit 3
+    _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (False, "[mock] 网关失败")
+    code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path="/tmp/lead-mock-out.md")
+    check(code == 3 and len(r.get("chain", [])) >= 3, "mock 全败 → exit 3 + 降级链记录",
+          f"mock 全败实得 {code} chain={len(r.get('chain', []))}")
+    check(not os.path.exists("/tmp/lead-mock-out.md"), "全败不产生产出文件", "全败残留产出文件")
+
+    # ③ mock 成功 → exit 0 + 产出落盘
+    _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (True, "# 承办产出 mock\n完整内容")
+    code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path="/tmp/lead-mock-ok.md")
+    check(code == 0 and os.path.exists("/tmp/lead-mock-ok.md") and "承办产出 mock" in open("/tmp/lead-mock-ok.md").read(),
+          "mock 成功 → exit 0 + 产出落盘", f"mock 成功实得 {code}")
+    os.unlink("/tmp/lead-mock-ok.md")
+
+    # ④ LEAD_PROMPT 缺失 → exit 2（A6）
+    saved_prompt = globals()["LEAD_PROMPT"]
+    globals()["LEAD_PROMPT"] = "/nonexistent/lead-v1.txt"
+    code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path="/tmp/x.md", dry_run=False)
+    globals()["LEAD_PROMPT"] = saved_prompt
+    check(code == 2, "承办模板缺失 → exit 2（A6）", f"A6 实得 {code}")
+
+    _lead_call = saved
     total = passed + len(failures)
     print(f"lead_route 自测: {passed}/{total} 通过")
     for f in failures:
@@ -334,7 +372,11 @@ def main():
     except Exception as e:
         print(f"✗ lead_route 启动错误: {e}", file=sys.stderr)
         sys.exit(2)
-    code, result = route_and_execute(task, models_yaml, out_path, force_model, dry_run)
+    try:
+        code, result = route_and_execute(task, models_yaml, out_path, force_model, dry_run)
+    except Exception as e:  # P2-6：统一兜底，退出码语义 0/2/3 不破坏
+        result = {"decision": "error", "task_type": "?", "note": f"未预期异常: {type(e).__name__}: {e}"}
+        code = 3
     # combo 注入：审级路由结果随承办路由一并输出（一次调用 = 立案全量，消除双跑）
     try:
         combo, combo_reason, _ = route(task, rules)

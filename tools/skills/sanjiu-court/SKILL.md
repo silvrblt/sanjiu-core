@@ -2,7 +2,7 @@
 name: sanjiu-court
 description: 三审九方立案庭——建卡阈值内任务进入即自动立案分流（A 一审+二审/B 二审+三审/单文件例外/升级触发器 C）并自动路由承办模型（lead_route v1.0.2）；说「三审九方 X」= 快捷触发；规则与脚本见 eep-tools（routing_rules.yaml 唯一事实源）
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Skill: sanjiu-court（三审九方立案庭）
