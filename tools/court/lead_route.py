@@ -73,13 +73,22 @@ def _vendor_by_prefix(model):
 
 
 def resolve_cli(models_yaml, model, vendor):
-    """model → (cli, api_id)：seats 九席精确命中优先（取其 cli/api_id/max_tokens）；miss → vendor 推断。"""
+    """model → (cli, api_id)：seats 九席精确命中优先（取其 cli/api_id/max_tokens）；
+    cli=session 的席位（一审承办=窗口会话）模型禁止 vendor 推断——防同模型双通道（API 再调一次
+    窗口模型 = 换汤不换药）与语义自环（DS Pro 三轮问题1）。
+    miss（非现役候选）→ vendor 推断，api_id = 模型名（未验证标记由调用方打）。"""
     seats = models_yaml.get("seats") or {}
+    session_models = set()
     for seat in seats.values():
         if isinstance(seat, dict) and seat.get("model") == model:
             cli = seat.get("cli")
-            if cli and cli != "session":  # session 席（一审承办）不可桥接——防自环
+            if cli == "session":
+                session_models.add(model)
+                continue
+            if cli:
                 return cli, seat.get("api_id") or model, seat.get("max_tokens") or DEFAULT_MAX_TOKENS
+    if model in session_models:  # 现役 session 席模型 → 不可桥接
+        return None, None, DEFAULT_MAX_TOKENS
     cli = VENDOR_CLI.get(vendor)
     if not cli:
         return None, None, DEFAULT_MAX_TOKENS
@@ -156,31 +165,34 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                    "duration_s": round(time.time() - started, 1)}
     payload, system = build_payload(task, ttype, troute, LEAD_PROMPT)
     candidates = troute.get("candidates", [])
-    forced_out = False
+    forced = bool(force_model)
+    in_pool = False
     if force_model:
         cand = next((c for c in candidates if c.get("model") == force_model), None)
         if cand:
             candidates = [cand]  # P1-3：池内命中 = 人工指定达标候选，非"非官方候选池"
+            in_pool = True
         else:
             # force 不在达标池：构造单元素候选（vendor 按前缀映射推断），note 标注人工强制
             vendor = _vendor_by_prefix(force_model)
             candidates = [{"model": force_model, "vendor": vendor, "price_in": None, "price_out": None}]
-            forced_out = True
-    note_forced = "；[人工强制指定模型（非官方候选池），结果需核验]" if forced_out else ""
+            in_pool = False
+    note_forced = "" if not (forced and not in_pool) else "；[人工强制指定模型（非官方候选池），结果需核验]"
 
-    # A8：dry-run 不落盘——仅解析决策链（无副作用）
+    # A8：dry-run 不落盘——仅解析决策链（无副作用）；问题4：非池 force api_id 未验证标记
     if dry_run:
         for c in candidates:
             cli, api_id, mt = resolve_cli(models_yaml, c.get("model"), c.get("vendor"))
             chain.append({"model": c.get("model"), "cli": cli, "api_id": api_id, "ok": bool(cli),
-                          "dry_run": True})
+                          "dry_run": True,
+                          "api_id_unverified": forced and not in_pool and bool(cli)})
         first = next((c for c in chain if c.get("ok")), None)
         if not first:
             return 3, {"decision": "ranked", "task_type": ttype, "model": None, "chain": chain,
                        "errors": [f"{c.get('model')}: 无可用桥接 CLI" for c in candidates],
                        "note": "候选全部无可用 CLI（dry-run）", "duration_s": round(time.time() - started, 1)}
         return 0, {"decision": "ranked", "task_type": ttype, "model": first["model"], "cli": first["cli"],
-                   "chain": chain, "out": out_path, "dry_run": True,
+                   "chain": chain, "out": out_path, "dry_run": True, "forced": forced, "in_pool": in_pool,
                    "duration_s": round(time.time() - started, 1)}
 
     # P0-1：真实调用必须指定 --out（产出落盘契约；dry-run 已在上方返回）
@@ -223,7 +235,7 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                     chain[-1]["err"] = f"write_fail: {e}"
                     continue
                 return 0, {"decision": "ranked", "task_type": ttype, "model": model, "cli": cli,
-                           "chain": chain, "out": out_path,
+                           "chain": chain, "out": out_path, "forced": forced, "in_pool": in_pool,
                            "duration_s": round(time.time() - started, 1),
                            "note": f"承办产出由 {model} 生成（类型路由推荐/降级链第 {len(chain)} 位）{note_forced}"}
             errors.append(f"{model}: {content[:150]}")
@@ -234,7 +246,7 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
             pass
     # 全败
     return 3, {"decision": "ranked", "task_type": ttype, "model": None,
-               "chain": chain, "errors": errors,
+               "chain": chain, "errors": errors, "forced": forced, "in_pool": in_pool,
                "note": f"候选全部失败——回退当前会话承办 + 人工核查（候选 api_id 未内置时可用 --force-model 指定）{note_forced}",
                "duration_s": round(time.time() - started, 1)}
 
@@ -301,6 +313,15 @@ def self_test():
     # A4b：无法识别 vendor 的 force → 无 CLI 进降级
     code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, dry_run=True, force_model="unknown-xyz")
     check(code == 3, "force-model=unknown-xyz → exit 3（vendor 不可解析）", f"A4b 实得 {code}/{r}")
+
+    # ---- 问题1：session 席模型防自环（vendor 推断不得复活 session 席模型）----
+    fake_yaml = dict(models_yaml)
+    fake_yaml["seats"] = dict(models_yaml.get("seats") or {})
+    fake_yaml["seats"]["l1_lead"] = {"model": "deepseek-v4-flash", "cli": "session",
+                                     "api_id": "deepseek-v4-flash", "max_tokens": 16384}
+    cli, api_id, mt = resolve_cli(fake_yaml, "deepseek-v4-flash", "deepseek")
+    check(cli is None, "session 席模型（deepseek-v4-flash）→ 无 CLI（防自环）",
+          f"session 防自环失败: cli={cli}")
 
     # ---- P1-4：异常/真实路径单测（mock _lead_call 注入，不真调外部模型）----
     print("== 异常路径（mock）==")
