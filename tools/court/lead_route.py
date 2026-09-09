@@ -159,7 +159,7 @@ def call_lead(cli, api_id, payload_file, ask, system, max_tokens):
     content = j.get("content", "")
     if not isinstance(content, str) or not content.strip() or len(content.strip()) < MIN_VALID_OUTPUT_LENGTH:
         return (False, f"[empty] 产出为空或无效（len={len(str(content))}）",
-                {"fail_class": "empty_output", "model": api_id, "cli": cli,
+                {"fail_class": "empty_output", "model": api_id, "cli": cli, "usage": None,
                  "wait_s": round(time.time() - t0, 1)})  # BLK-1：全分支三值
     meta = {"cli": cli, "model": j.get("model") or api_id, "usage": j.get("usage"),
             "wait_s": j.get("wait_s") or round(time.time() - t0, 1),
@@ -273,10 +273,10 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
         fd, payload_file = tempfile.mkstemp(prefix="lead-", suffix=".task.json")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=1)
-    except OSError as e:
+    except Exception as e:  # 终审3项4：非 OSError（json.dump TypeError 等）也清理
         if payload_file:
             try:
-                os.unlink(payload_file)  # AUD-08：dump 异常统一清理
+                os.unlink(payload_file)
             except OSError:
                 pass
         return 3, {"decision": "ranked", "task_type": ttype, "model": None, "chain": chain,
@@ -300,7 +300,8 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
             caller = _lead_call or call_lead
             ok, content, meta = caller(cli, api_id, payload_file, payload["诉求"], system, mt)
             chain.append({"model": model, "cli": cli, "api_id": api_id, "api_id_source": api_src,
-                          "api_id_unverified": (forced and not in_pool) or api_src == "vendor_inferred",  # AUD-02
+                          "api_id_unverified": ((forced and not in_pool and bool(cli))
+                          or (bool(cli) and api_src == "vendor_inferred")),  # AUD-02/终审3项2
                           "ok": ok, "err": None if ok else content[:CHAIN_ERR_PREVIEW_LIMIT], "meta": meta})
             if ok:
                 try:
@@ -308,9 +309,11 @@ def route_and_execute(task, models_yaml, out_path=None, force_model=None, dry_ru
                         with open(out_path, "w", encoding="utf-8") as f:
                             f.write(content)
                 except OSError as e:
-                    # A2：写盘失败 = 该候选失败，进降级链
+                    # A2/终审3项3：写盘失败 = 该候选失败，进降级链（链节点状态同步修正）
                     errors.append(f"{model}: 产出写盘失败 {e}")
+                    chain[-1]["ok"] = False
                     chain[-1]["err"] = f"write_fail: {e}"
+                    chain[-1].setdefault("meta", {})["fail_class"] = "write_fail"
                     continue
                 return 0, {"decision": "ranked", "task_type": ttype, "model": model, "cli": cli,
                            "chain": chain, "out": out_path, "forced": forced, "in_pool": in_pool,
@@ -424,7 +427,7 @@ def self_test():
         _lead_call = lambda cli, api_id, pf, ask, sys_, mt: (True, "# 承办产出 mock\n完整内容", {"usage": {"total_tokens": 100}})
         _out2 = os.path.join(_td, "ok.md")
         code, r = route_and_execute({"title": "实现用户登录接口"}, models_yaml, out_path=_out2)
-        check(code == 0 and os.path.exists(_out2) and "承办产出 mock" in open(_out2).read(),
+        check(code == 0 and os.path.exists(_out2) and "承办产出 mock" in open(_out2, encoding="utf-8").read(),
               "mock 成功 → exit 0 + 产出落盘", f"mock 成功实得 {code}")
 
     # ④ LEAD_PROMPT 缺失 → exit 2（A6）
