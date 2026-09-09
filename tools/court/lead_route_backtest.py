@@ -78,7 +78,7 @@ def main():
     rate = ok_n / len(CASES)
     print(f"\n30 任务回测：{ok_n}/30 命中（命中率 {rate:.0%}，验收线 ≥90%）")
     # 输出证据 JSON
-    ev_dir = os.path.join(os.path.dirname(HERE), "docs", "type-route", "evidence")
+    ev_dir = os.path.join(os.path.dirname(os.path.dirname(HERE)), "docs", "type-route", "evidence")  # 仓根 docs
     os.makedirs(ev_dir, exist_ok=True)
     out = os.path.join(ev_dir, "lead_route-30任务回测-20260907.json")
     with open(out, "w", encoding="utf-8") as f:
