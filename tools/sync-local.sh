@@ -22,7 +22,7 @@ core_head() {  # 机制仓最新 tag（含 commit 短哈希）
 
 # ---- 0. 机制仓存在性 ----
 if [ ! -d "$CORE/.git" ]; then
-  echo "  ✗ sanjiu-core 机制仓缺失（$CORE）——新机请先 clone codex-agents 并执行 bootstrap.sh"; exit 2
+  echo "  ✗ sanjiu-core 机制仓缺失（${CORE}）——新机请先 clone codex-agents 并执行 bootstrap.sh"; exit 2
 fi
 
 # ---- 1. 拉取最新 tag（网络失败降级本地 tag 并告警）----
@@ -102,5 +102,14 @@ for d in "$WS"/01_projects/*/; do
   fi
 done
 
-[ "$FAIL" -eq 0 ] && echo "== sync-local 校验全部通过 ==" || echo "== sync-local 校验失败（FAIL=1，禁止开工）=="
+[ "$FAIL" -eq 0 ] &&   # 2e. 机制包 14（人工纠正复盘）与 AGENTS §十三 一致性（防悬空引用与多副本漂移）
+  if [ -x "$CORE/tools/sync-correction-log.sh" ]; then
+    echo "  -- 机制包 14 与 §十三 一致性 --"
+    if ! bash "$CORE/tools/sync-correction-log.sh" --check; then
+      echo "  ✗ 机制包 14 与 AGENTS.md §十三 不一致（禁止开工：先跑 tools/sync-correction-log.sh）" >&2
+      FAIL=1
+    fi
+  fi
+
+echo "== sync-local 校验全部通过 ==" || echo "== sync-local 校验失败（FAIL=1，禁止开工）=="
 exit "$FAIL"
