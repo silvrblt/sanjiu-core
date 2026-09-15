@@ -102,14 +102,21 @@ for d in "$WS"/01_projects/*/; do
   fi
 done
 
-[ "$FAIL" -eq 0 ] &&   # 2e. 机制包 14（人工纠正复盘）与 AGENTS §十三 一致性（防悬空引用与多副本漂移）
-  if [ -x "$CORE/tools/sync-correction-log.sh" ]; then
-    echo "  -- 机制包 14 与 §十三 一致性 --"
-    if ! bash "$CORE/tools/sync-correction-log.sh" --check; then
-      echo "  ✗ 机制包 14 与 AGENTS.md §十三 不一致（禁止开工：先跑 tools/sync-correction-log.sh）" >&2
-      FAIL=1
-    fi
+# 2e. 机制包 14（人工纠正复盘）与 AGENTS §十三 一致性（防悬空引用与多副本漂移）
+if [ -x "$CORE/tools/sync-correction-log.sh" ]; then
+  echo "  -- 机制包 14 与 §十三 一致性 --"
+  if ! bash "$CORE/tools/sync-correction-log.sh" --check; then
+    echo "  ✗ 机制包 14 与 AGENTS.md §十三 不一致（禁止开工：先跑 tools/sync-correction-log.sh）" >&2
+    FAIL=1
   fi
+fi
 
-echo "== sync-local 校验全部通过 ==" || echo "== sync-local 校验失败（FAIL=1，禁止开工）=="
-exit "$FAIL"
+# 最终判定：显式 if 分支 —— 原写法 `[ cond ] && echo 通过 || echo 失败` 在中间插入语句后
+# 会断链恒真，导致失败被静默（2026-09-15 自引入并修复：工具自身的静默失败也要防）
+if [ "$FAIL" -eq 0 ]; then
+  echo "== sync-local 校验全部通过 =="
+  exit 0
+else
+  echo "== sync-local 校验失败（FAIL=1，禁止开工）=="
+  exit 1
+fi
