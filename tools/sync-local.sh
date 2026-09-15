@@ -103,10 +103,10 @@ for d in "$WS"/01_projects/*/; do
 done
 
 # 2e. 机制包 14（人工纠正复盘）与 AGENTS §十三 一致性（防悬空引用与多副本漂移）
-if [ -x "$CORE/tools/sync-correction-log.sh" ]; then
-  echo "  -- 机制包 14 与 §十三 一致性 --"
-  if ! bash "$CORE/tools/sync-correction-log.sh" --check; then
-    echo "  ✗ 机制包 14 与 AGENTS.md §十三 不一致（禁止开工：先跑 tools/sync-correction-log.sh）" >&2
+if [ -x "$CORE/tools/check-correction-log-sync.sh" ]; then
+  echo "  -- 机制包 14（EEP）与 §十三 条目一致性 --"
+  if ! bash "$CORE/tools/check-correction-log-sync.sh"; then
+    echo "  ✗ 机制包 14 缺条目（禁止开工：把 §十三 新增条目镜像进 EEP 机制包 14）" >&2
     FAIL=1
   fi
 fi
