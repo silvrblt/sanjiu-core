@@ -20,6 +20,30 @@ core_head() {  # 机制仓最新 tag（含 commit 短哈希）
   git -C "$CORE" describe --tags --abbrev=7 2>/dev/null
 }
 
+# ---- 备份保留策略（2026-09-18 三审九方 combo A 定稿：KEEP_BAKS 硬上限 + 溢出归档）----
+# 原实现为裸 cp 且无上限，工作区根因此堆积 25 个 AGENTS.md.bak-*（1.5M）。
+KEEP_BAKS="${KEEP_BAKS:-5}"
+BAK_ARCHIVE="$WS/03_codex-archive/bak-archive/misc"
+
+backup_target() {  # $1=待备份文件 $2=标记(可空)；产出 <name>.bak-<mark><ts>-<pid>，超出上限者入归档区
+  local target="$1" mark="${2:-}" dir base stamp pattern n overflow
+  [ -f "$target" ] || return 0
+  dir=$(dirname "$target"); base=$(basename "$target")
+  stamp=$(date +%Y%m%d-%H%M%S)-$$
+  cp -p "$target" "$target.bak-${mark}${stamp}" 2>/dev/null || return 0
+  pattern="$base.bak-${mark}*"
+  n=$(find "$dir" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | wc -l | tr -d ' ')
+  overflow=$((n - KEEP_BAKS))
+  [ "$overflow" -gt 0 ] || return 0
+  mkdir -p "$BAK_ARCHIVE"
+  find "$dir" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | sort | head -n "$overflow" | \
+    while IFS= read -r old; do
+      rel=$(printf '%s' "$old" | sed "s|^$WS/||; s|/|__|g")
+      mv "$old" "$BAK_ARCHIVE/$rel" 2>/dev/null || true
+    done
+  return 0
+}
+
 # ---- 0. 机制仓存在性 ----
 if [ ! -d "$CORE/.git" ]; then
   echo "  ✗ sanjiu-core 机制仓缺失（${CORE}）——新机请先 clone codex-agents 并执行 bootstrap.sh"; exit 2
@@ -43,13 +67,13 @@ if [ "${1:-}" != "--check" ]; then
   if [ -f "$WS_AGENTS" ] && diff -q "$NEW" "$WS_AGENTS" >/dev/null 2>&1; then
     rm -f "$NEW"; echo "  ✓ 工作区 AGENTS.md 已是最新产物（${CORE_VER}）"
   else
-    [ -f "$WS_AGENTS" ] && cp "$WS_AGENTS" "$WS_AGENTS.bak-$(date +%Y%m%d-%H%M%S)"
+    [ -f "$WS_AGENTS" ] && backup_target "$WS_AGENTS"
     mv "$NEW" "$WS_AGENTS"; echo "  ✓ 工作区 AGENTS.md 已生成（${CORE_VER}，旧版已备份）"
   fi
   # 2b. 运行位文件拉取（yaml/ledger/selfcheck/bridge_core）
   for f in sanjiu-models.yaml errors-ledger.jsonl sanjiu-selfcheck.sh bridge_core.py; do
     if ! diff -q "$CORE/tools/$f" "$EEP_TOOLS/$f" >/dev/null 2>&1; then
-      cp "$EEP_TOOLS/$f" "$EEP_TOOLS/$f.bak-sync-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
+      backup_target "$EEP_TOOLS/$f" "sync-"
       cp "$CORE/tools/$f" "$EEP_TOOLS/$f" && echo "  ✓ 运行位 tools/$f 已更新（旧版备份）"
     else
       echo "  ✓ 运行位 tools/$f 一致"
@@ -58,7 +82,7 @@ if [ "${1:-}" != "--check" ]; then
   # 2b2. 立案庭运行位拉取（court 权威：route_task.py + routing_rules.yaml；2026-09-06 N4 收口防漂移）
   for f in route_task.py routing_rules.yaml; do
     if ! diff -q "$CORE/tools/court/$f" "$EEP_TOOLS/$f" >/dev/null 2>&1; then
-      cp "$EEP_TOOLS/$f" "$EEP_TOOLS/$f.bak-sync-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
+      backup_target "$EEP_TOOLS/$f" "sync-"
       cp "$CORE/tools/court/$f" "$EEP_TOOLS/$f" && echo "  ✓ 运行位 court/$f 已更新（旧版备份）"
     else
       echo "  ✓ 运行位 court/$f 一致"
