@@ -23,10 +23,10 @@ core_head() {  # 机制仓最新 tag（含 commit 短哈希）
 # ---- 备份保留策略（2026-09-18 三审九方 combo A 定稿：KEEP_BAKS 硬上限 + 溢出归档）----
 # 原实现为裸 cp 且无上限，工作区根因此堆积 25 个 AGENTS.md.bak-*（1.5M）。
 KEEP_BAKS="${KEEP_BAKS:-5}"
-BAK_ARCHIVE="$WS/03_codex-archive/bak-archive/misc"
+BAK_ARCHIVE_ROOT="$WS/03_codex-archive/bak-archive"
 
 backup_target() {  # $1=待备份文件 $2=标记(可空)；产出 <name>.bak-<mark><ts>-<pid>，超出上限者入归档区
-  local target="$1" mark="${2:-}" dir base stamp pattern n overflow
+  local target="$1" mark="${2:-}" dir base stamp pattern n overflow dest
   [ -f "$target" ] || return 0
   dir=$(dirname "$target"); base=$(basename "$target")
   stamp=$(date +%Y%m%d-%H%M%S)-$$
@@ -35,11 +35,15 @@ backup_target() {  # $1=待备份文件 $2=标记(可空)；产出 <name>.bak-<m
   n=$(find "$dir" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | wc -l | tr -d ' ')
   overflow=$((n - KEEP_BAKS))
   [ "$overflow" -gt 0 ] || return 0
-  mkdir -p "$BAK_ARCHIVE"
+  case "$base" in
+    AGENTS.md) dest="$BAK_ARCHIVE_ROOT/AGENTS.md" ;;
+    *)         dest="$BAK_ARCHIVE_ROOT/misc" ;;
+  esac
+  mkdir -p "$dest"
   find "$dir" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | sort | head -n "$overflow" | \
     while IFS= read -r old; do
       rel=$(printf '%s' "$old" | sed "s|^$WS/||; s|/|__|g")
-      mv "$old" "$BAK_ARCHIVE/$rel" 2>/dev/null || true
+      mv "$old" "$dest/$rel" 2>/dev/null || true
     done
   return 0
 }
