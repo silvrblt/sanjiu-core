@@ -524,6 +524,37 @@ def continue_request(res, messages, prov, key, mt, tcfg, progress_file):
 
 def run_audit(cli_name, args, env):
     _CURRENT["out"] = args.out  # SIGTERM flush 落盘目标
+    # ---- 流转回执闸门（2026-09-29）：FLOW_GATE_ENFORCE=1 时，审计/裁决调用必须持合法回执 ----
+    if env.get("FLOW_GATE_ENFORCE") == "1":
+        import json as _json
+        import sys as _sys
+        _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "court"))
+        from flow_gate import FlowGate  # 运行位同步件；sanjiu-core tools/court/ 权威
+        if not args.receipt or not args.card:
+            print(f"{cli_name}: FLOW_ERR_NO_RECEIPT 闸门拒绝：审计调用必须携带 --receipt 与 --card",
+                  file=sys.stderr)
+            _write_exit_code(args.out, 19, "FLOW_ERR_NO_RECEIPT")
+            sys.exit(19)
+        try:
+            receipt = _json.load(open(args.receipt, encoding="utf-8"))
+            card = _json.load(open(args.card, encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            print(f"{cli_name}: FLOW_ERR_BAD_RECEIPT 闸门拒绝：回执/任务卡读取失败（{e}）",
+                  file=sys.stderr)
+            _write_exit_code(args.out, 19, "FLOW_ERR_BAD_RECEIPT")
+            sys.exit(19)
+        _gate = FlowGate()
+        ok, gate_err = _gate.gate_check(receipt, card)
+        if not ok:
+            print(f"{cli_name}: {gate_err} 闸门拒绝（回执校验失败）", file=sys.stderr)
+            _write_exit_code(args.out, 19, gate_err or "FLOW_ERR_BAD_RECEIPT")
+            sys.exit(19)
+        if args.action:
+            ok, gate_err, gate_msg = _gate.check_round(str(card.get("title", "")), args.action)
+            if not ok:
+                print(f"{cli_name}: {gate_err} {gate_msg}", file=sys.stderr)
+                _write_exit_code(args.out, 19, gate_err)
+                sys.exit(19)
     prov = dict(PROVIDERS[cli_name])
     prov["name"] = cli_name
     key = env.get(prov["key"], "")
@@ -686,6 +717,11 @@ def audit_main(cli_name, argv):
     p.add_argument("--crg", default=None,
                    help="demo：code-review-graph 定向裁剪（repo 路径），需 --crg-focus 焦点文件")
     p.add_argument("--crg-focus", default=None, help="--crg 焦点文件（相对 repo）")
+    # ---- 流转回执闸门（2026-09-29 阶段2）：FLOW_GATE_ENFORCE=1 时强制 ----
+    p.add_argument("--receipt", default=None, help="立案庭路由回执 JSON 路径（flow_gate 签发）")
+    p.add_argument("--card", default=None, help="对应任务卡 JSON 路径（回执校验锚定）")
+    p.add_argument("--action", default=None, choices=["lead_audit", "judge", "appeal"],
+                   help="防扯皮硬计数动作（FLOW_GATE_ENFORCE=1 时与回执一并校验，超限熔断退出码 19）")
     try:
         args = ap.parse_args(argv)
     except SystemExit:
