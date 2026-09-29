@@ -57,16 +57,21 @@ FALLBACK_SIGNALS = {
 
 
 def _load_signals():
-    if not os.path.exists(RULES_PATH):
-        return dict(FALLBACK_SIGNALS)  # 唯一兜底：yaml 文件缺失
-    with open(RULES_PATH, encoding="utf-8") as f:
-        rules = yaml.safe_load(f) or {}
-    sig = rules.get("flow_signals")
-    if not sig or not sig.get("forced_domains") or not sig.get("direct_hints"):
-        raise FlowGateError(FLOW_ERR_CONFIG,
-                            "routing_rules.yaml flow_signals 节缺失/为空：拒绝静默兜底（唯一事实源）")
-    return {"forced_domains": list(sig["forced_domains"]),
-            "direct_hints": list(sig["direct_hints"])}
+    try:
+        if not os.path.exists(RULES_PATH):
+            return dict(FALLBACK_SIGNALS)  # 唯一兜底：yaml 文件缺失
+        with open(RULES_PATH, encoding="utf-8") as f:
+            rules = yaml.safe_load(f) or {}
+        sig = rules.get("flow_signals")
+        if not sig or not sig.get("forced_domains") or not sig.get("direct_hints"):
+            raise FlowGateError(FLOW_ERR_CONFIG,
+                                "routing_rules.yaml flow_signals 节缺失/为空：拒绝静默兜底（唯一事实源）")
+        return {"forced_domains": list(sig["forced_domains"]),
+                "direct_hints": list(sig["direct_hints"])}
+    except FlowGateError:
+        raise
+    except Exception as e:  # YAMLError/OSError/解码异常全收敛为稳定错误码
+        raise FlowGateError(FLOW_ERR_CONFIG, f"routing_rules.yaml 读取失败（{type(e).__name__}）") from e
 
 
 def _load_secret():
@@ -98,11 +103,11 @@ class RoundCounter:
                 self.state = json.load(f)
         except (OSError, ValueError):
             self.state = {}
-        # 旧版平铺结构迁移（含 __meltdown__ 保留键版本）
-        if "__meltdown__" in self.state and "counts" not in self.state:
-            migrated = {"counts": {}, "meltdown": self.state.get("__meltdown__", [])}
+        # 旧版平铺结构迁移（v0/v1 平铺任务键版本；无 counts 键即迁移，不依赖 __meltdown__ 存在）
+        if "counts" not in self.state:
+            migrated = {"counts": {}, "meltdown": list(self.state.get("__meltdown__", []))}
             for k, v in self.state.items():
-                if k != "__meltdown__" and isinstance(v, dict):
+                if k not in ("__meltdown__", "meltdown") and isinstance(v, dict):
                     migrated["counts"][k] = v
             self.state = migrated
         self.state.setdefault("counts", {})

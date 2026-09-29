@@ -58,7 +58,7 @@ def _set_default(provider, model):
     return restore
 
 
-def dispatch(combo, card, prompt="", timeout=120):
+def dispatch(combo, card, prompt="", timeout=120, receipt_id=None):
     seat = SEAT_MAP[combo]
     task_text = " ".join(str(card.get(k) or "") for k in ("title", "description", "prompt"))
     full = f"{prompt}\n\n任务卡：{task_text}" if prompt else f"任务卡：{task_text}"
@@ -78,7 +78,8 @@ def dispatch(combo, card, prompt="", timeout=120):
         except subprocess.TimeoutExpired:
             return {"mode": "codex", "role": seat["role"], "ok": False, "cost_s": timeout,
                     "output": "", "fallback": f"超时>{timeout}s 降级窗口会话+人工",
-                    "gate_record": "FLOW_ERR_MELTDOWN"}
+                    "gate_record": "FLOW_ERR_MELTDOWN",
+                    "receipt_id": receipt_id}
     restore = _set_default(seat["provider"], seat["model"])
     try:
         t0 = time.time()
@@ -94,7 +95,8 @@ def dispatch(combo, card, prompt="", timeout=120):
         return {"mode": "dsh", "provider": seat["provider"], "model": seat["model"],
                 "role": seat["role"], "ok": False, "cost_s": timeout,
                 "output": "", "fallback": f"超时>{timeout}s 降级窗口会话+人工",
-                "gate_record": "FLOW_ERR_MELTDOWN"}
+                "gate_record": "FLOW_ERR_MELTDOWN",
+                "receipt_id": receipt_id}
     finally:
         restore()
 
