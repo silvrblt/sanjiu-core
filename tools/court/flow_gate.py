@@ -47,16 +47,15 @@ FALLBACK_SIGNALS = {
 
 
 def _load_signals():
-    try:
-        with open(RULES_PATH, encoding="utf-8") as f:
-            rules = yaml.safe_load(f) or {}
-        sig = rules.get("flow_signals") or {}
-        return {
-            "forced_domains": sig.get("forced_domains") or FALLBACK_SIGNALS["forced_domains"],
-            "direct_hints": sig.get("direct_hints") or FALLBACK_SIGNALS["direct_hints"],
-        }
-    except Exception:
-        return dict(FALLBACK_SIGNALS)
+    if not os.path.exists(RULES_PATH):
+        return dict(FALLBACK_SIGNALS)  # 唯一兜底：yaml 文件缺失
+    with open(RULES_PATH, encoding="utf-8") as f:
+        rules = yaml.safe_load(f) or {}
+    sig = rules.get("flow_signals")
+    if not sig or not sig.get("forced_domains") or not sig.get("direct_hints"):
+        raise ValueError("routing_rules.yaml flow_signals 节缺失/为空：拒绝静默兜底（唯一事实源）")
+    return {"forced_domains": list(sig["forced_domains"]),
+            "direct_hints": list(sig["direct_hints"])}
 
 
 def _load_secret():
@@ -126,6 +125,13 @@ class FlowGate:
         self.counter.state["__meltdown__"] = sorted(self.meltdown)
         self.counter._save()
 
+    def reset_task(self, task_id):
+        """复位任务全部状态：轮次计数 + 熔断标记（持久化同步）。"""
+        self.counter.reset(task_id)
+        self.meltdown.discard(task_id)
+        self.counter.state["__meltdown__"] = sorted(self.meltdown)
+        self.counter._save()
+
     # ---- 1. 材料包硬校验 ----
     def validate_package(self, pkg):
         if not isinstance(pkg, dict):
@@ -171,6 +177,8 @@ class FlowGate:
 
     def verify_receipt(self, receipt, card):
         try:
+            if receipt.get("combo") not in ("direct", "A", "B"):
+                return False
             body = self._sig_body(receipt["receipt_id"], receipt["combo"],
                                   receipt["task_type"], receipt["issued_at"],
                                   receipt["card_sha256"])
@@ -205,6 +213,7 @@ def _selftest():
     gate = FlowGate()
     fails = []
     total = 0
+    _pid = str(os.getpid())  # 自测任务隔离：避免历史状态文件残留干扰断言
 
     def check(name, cond):
         nonlocal total
@@ -214,40 +223,40 @@ def _selftest():
         print(("PASS " if cond else "FAIL ") + name)
 
     # 1. schema 硬校验
-    lead_ok = {"package_version": "1.0", "package_type": "lead_package", "task_id": "t1",
+    lead_ok = {"package_version": "1.0", "package_type": "lead_package", "task_id": f"t1-{_pid}",
                "user_quote": "原话", "requirement_analysis": "a", "proposal": "p", "basis": "b"}
     check("lead_package 完整通过", gate.validate_package(lead_ok)[0])
     lead_bad = dict(lead_ok); lead_bad.pop("user_quote")
     check("lead_package 缺 user_quote 拒绝", not gate.validate_package(lead_bad)[0])
-    appeal_ok = {"package_version": "1.0", "package_type": "appeal_package", "task_id": "t1",
+    appeal_ok = {"package_version": "1.0", "package_type": "appeal_package", "task_id": f"t1-{_pid}",
                  "background": "背景", "objection_items": [{"issue_id": "i1", "objection": "o", "basis": "b"}]}
     check("appeal_package 通过", gate.validate_package(appeal_ok)[0])
     appeal_full = dict(appeal_ok); appeal_full["full_context"] = "全套材料（违规）"
     check("appeal_package 带全量上下文拒绝", not gate.validate_package(appeal_full)[0])
-    audit_bad = {"package_version": "1.0", "package_type": "audit_package", "task_id": "t1",
+    audit_bad = {"package_version": "1.0", "package_type": "audit_package", "task_id": f"t1-{_pid}",
                  "verdict": "reject", "issue_list": [], "evidence_mapping": [], "returned_to_lead": False}
     check("audit_package 未返还承办拒绝", not gate.validate_package(audit_bad)[0])
-    judge_in = {"package_version": "1.0", "package_type": "judge_input_package", "task_id": "t1",
+    judge_in = {"package_version": "1.0", "package_type": "judge_input_package", "task_id": f"t1-{_pid}",
                 "user_quote": "原话", "lead_analysis": "a", "audit_opinion": "o",
                 "questions_to_adjudicate": ["q1"]}
     check("judge_input 四字段通过", gate.validate_package(judge_in)[0])
-    final_pkg = {"package_version": "1.0", "package_type": "final_package", "task_id": "t1",
+    final_pkg = {"package_version": "1.0", "package_type": "final_package", "task_id": f"t1-{_pid}",
                  "background": "b", "dispute": "d", "business_impact": "i", "options": ["o1"]}
     check("final_package 通过", gate.validate_package(final_pkg)[0])
 
     # 2. 防扯皮硬计数（含持久化跨实例）
-    card = {"title": "t1"}
-    ok, _, _ = gate.check_round("t1", "lead_audit")
+    card = {"title": f"t1-{_pid}"}
+    ok, _, _ = gate.check_round(f"t1-{_pid}", "lead_audit")
     check("第一轮对抗放行", ok)
-    ok2, err2, _ = gate.check_round("t1", "lead_audit")
+    ok2, err2, _ = gate.check_round(f"t1-{_pid}", "lead_audit")
     check("第二轮对抗熔断", (not ok2) and err2 == FLOW_ERR_MELTDOWN)
     gate2 = FlowGate()
-    check("熔断状态跨实例持久化", "t1" in gate2.meltdown)
-    gate.counter.reset("t1"); gate.meltdown.discard("t1"); gate.counter._save()
-    ok, _, _ = gate.check_round("t1", "appeal")
-    ok2, err2, _ = gate.check_round("t1", "appeal")
+    check("熔断状态跨实例持久化", f"t1-{_pid}" in gate2.meltdown)
+    gate.reset_task(f"t1-{_pid}")
+    ok, _, _ = gate.check_round(f"t1-{_pid}", "appeal")
+    ok2, err2, _ = gate.check_round(f"t1-{_pid}", "appeal")
     check("第二次上诉熔断", (not ok2) and err2 == FLOW_ERR_MELTDOWN)
-    gate.counter.reset("t1"); gate.meltdown.discard("t1"); gate.counter._save()
+    gate.reset_task(f"t1-{_pid}")
 
     # 3. 回执闸门
     r = gate.issue_receipt(card, "A", "code_gen")

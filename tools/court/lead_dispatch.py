@@ -65,6 +65,20 @@ def dispatch(combo, card, prompt="", timeout=120):
     if seat["mode"] == "session":
         return {"mode": "session", "role": seat["role"], "note": seat["note"],
                 "instruction": full, "ok": True}
+    if seat["mode"] == "codex":
+        t0 = time.time()
+        try:
+            r = subprocess.run(["codex", "exec", "--skip-git-repo-check", full],
+                               capture_output=True, text=True, timeout=timeout)
+            cost_s = round(time.time() - t0, 1)
+            ok = r.returncode == 0 and r.stdout.strip()
+            return {"mode": "codex", "role": seat["role"], "ok": ok, "exit": r.returncode,
+                    "cost_s": cost_s, "output": r.stdout.strip()[:500],
+                    "fallback": "窗口会话+人工" if not ok else None}
+        except subprocess.TimeoutExpired:
+            return {"mode": "codex", "role": seat["role"], "ok": False, "cost_s": timeout,
+                    "output": "", "fallback": f"超时>{timeout}s 降级窗口会话+人工",
+                    "gate_record": "FLOW_ERR_MELTDOWN"}
     restore = _set_default(seat["provider"], seat["model"])
     try:
         t0 = time.time()
