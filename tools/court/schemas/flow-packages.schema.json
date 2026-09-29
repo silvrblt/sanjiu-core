@@ -186,7 +186,8 @@
               "original",
               "revised",
               "location",
-              "reason"
+              "reason",
+              "evidence"
             ],
             "properties": {
               "id": {
@@ -214,6 +215,10 @@
                 "minLength": 1
               },
               "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence": {
                 "type": "string",
                 "minLength": 1
               }

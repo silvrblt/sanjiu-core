@@ -262,7 +262,8 @@ def _selftest():
     audit_ok = {"package_version": "1.0", "package_type": "audit_package", "task_id": f"t1-{_pid}",
                 "verdict": "revise", "revised_proposal": "修改版方案全文",
                 "diff_index": [{"id": "d1", "severity": "P1", "original": "原表述",
-                                "revised": "新表述", "location": "位置", "reason": "理由"}],
+                                "revised": "新表述", "location": "位置", "reason": "理由",
+                                "evidence": "证据"}],
                 "returned_to_lead": True}
     check("audit_package 修订版方案包通过", gate.validate_package(audit_ok)[0])
     audit_bad = dict(audit_ok); audit_bad["returned_to_lead"] = False
