@@ -35,7 +35,11 @@ def _read_settings():
         with open(SETTINGS, encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        return ""
+        return None  # None = 文件不存在
+
+
+def _settings_text(s):
+    return s if s is not None else ""
 
 
 def _write_settings(text):
@@ -49,12 +53,11 @@ def _write_settings(text):
 def _set_default(provider, model):
     """临时替换 agent-default-model 节（仅该节，行级精确）；返回还原函数。"""
     original = _read_settings()
-    lines = original.splitlines()
-    out, i, removed = [], 0, False
+    lines = (original or "").splitlines()
+    out, i = [], 0
     while i < len(lines):
         line = lines[i]
         if line.strip() == "agent-default-model:":
-            removed = True
             i += 1
             while i < len(lines) and (lines[i].startswith(("  ", "\t"))
                                        and lines[i].strip().split(":", 1)[0] in ("provider", "model")):
@@ -68,7 +71,13 @@ def _set_default(provider, model):
     _write_settings("\n".join(out) + "\n")
 
     def restore():
-        _write_settings(original)
+        if original is None:
+            try:
+                os.remove(SETTINGS)
+            except FileNotFoundError:
+                pass
+        else:
+            _write_settings(original)
     return restore
 
 
@@ -89,6 +98,16 @@ def dispatch(combo, card, prompt="", timeout=120, receipt_id=None):
                 return {"mode": "codex", "role": seat["role"], "ok": False,
                         "exit": "MISSING_BINARY", "cost_s": 0.0, "output": "",
                         "fallback": "codex 二进制缺失：降级窗口会话+人工",
+                        "receipt_id": receipt_id}
+            except PermissionError:
+                return {"mode": "codex", "role": seat["role"], "ok": False,
+                        "exit": "PERMISSION_DENIED", "cost_s": 0.0, "output": "",
+                        "fallback": "codex 无执行权限：降级窗口会话+人工",
+                        "receipt_id": receipt_id}
+            except OSError:
+                return {"mode": "codex", "role": seat["role"], "ok": False,
+                        "exit": "OSERROR", "cost_s": 0.0, "output": "",
+                        "fallback": "codex 启动失败：降级窗口会话+人工",
                         "receipt_id": receipt_id}
             cost_s = round(time.time() - t0, 1)
             ok = r.returncode == 0 and bool(r.stdout.strip())
@@ -112,6 +131,18 @@ def dispatch(combo, card, prompt="", timeout=120, receipt_id=None):
                     "role": seat["role"], "ok": False, "exit": "MISSING_BINARY",
                     "cost_s": 0.0, "output": "",
                     "fallback": "dsh 二进制缺失：降级窗口会话+人工",
+                    "receipt_id": receipt_id}
+        except PermissionError:
+            return {"mode": "dsh", "provider": seat["provider"], "model": seat["model"],
+                    "role": seat["role"], "ok": False, "exit": "PERMISSION_DENIED",
+                    "cost_s": 0.0, "output": "",
+                    "fallback": "dsh 无执行权限：降级窗口会话+人工",
+                    "receipt_id": receipt_id}
+        except OSError:
+            return {"mode": "dsh", "provider": seat["provider"], "model": seat["model"],
+                    "role": seat["role"], "ok": False, "exit": "OSERROR",
+                    "cost_s": 0.0, "output": "",
+                    "fallback": "dsh 启动失败：降级窗口会话+人工",
                     "receipt_id": receipt_id}
         cost_s = round(time.time() - t0, 1)
         ok = r.returncode == 0 and bool(r.stdout.strip())
@@ -158,15 +189,24 @@ def _selftest():
 def main(argv):
     if "--selftest" in argv:
         sys.exit(_selftest())
-    if "--combo" not in argv:
-        print(__doc__)
-        return 0
-    combo = argv[argv.index("--combo") + 1]
-    card_path = argv[argv.index("--card") + 1]
-    prompt = argv[argv.index("--prompt") + 1] if "--prompt" in argv else ""
-    timeout = int(argv[argv.index("--timeout") + 1]) if "--timeout" in argv else 120
+    import argparse
+    ap = argparse.ArgumentParser(prog="lead_dispatch", description="三审九方承办分发器")
+    ap.add_argument("--combo", choices=sorted(SEAT_MAP.keys()))
+    ap.add_argument("--card", default=None)
+    ap.add_argument("--prompt", default="")
+    ap.add_argument("--timeout", type=int, default=120)
     try:
-        card = json.load(open(card_path, encoding="utf-8"))
+        args = ap.parse_args(argv)
+    except SystemExit:
+        print(json.dumps({"ok": False, "error": "argparse_error"}, ensure_ascii=False))
+        return 2
+    if not args.combo or not args.card:
+        print(json.dumps({"ok": False, "error": "combo_and_card_required"}, ensure_ascii=False))
+        return 2
+    combo, card_path, prompt, timeout = args.combo, args.card, args.prompt, args.timeout
+    try:
+        with open(card_path, encoding="utf-8") as f:
+            card = json.load(f)
     except (OSError, ValueError) as e:
         print(f"lead_dispatch: 任务卡读取失败（{e}）", file=sys.stderr)
         return 2
@@ -178,4 +218,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))
