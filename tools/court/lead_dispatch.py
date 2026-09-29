@@ -82,8 +82,14 @@ def dispatch(combo, card, prompt="", timeout=120, receipt_id=None):
     if seat["mode"] == "codex":
         t0 = time.time()
         try:
-            r = subprocess.run(["codex", "exec", "--skip-git-repo-check", full],
-                               capture_output=True, text=True, timeout=timeout)
+            try:
+                r = subprocess.run(["codex", "exec", "--skip-git-repo-check", full],
+                                   capture_output=True, text=True, timeout=timeout)
+            except FileNotFoundError:
+                return {"mode": "codex", "role": seat["role"], "ok": False,
+                        "exit": "MISSING_BINARY", "cost_s": 0.0, "output": "",
+                        "fallback": "codex 二进制缺失：降级窗口会话+人工",
+                        "receipt_id": receipt_id}
             cost_s = round(time.time() - t0, 1)
             ok = r.returncode == 0 and bool(r.stdout.strip())
             return {"mode": "codex", "role": seat["role"], "ok": ok, "exit": r.returncode,
@@ -98,8 +104,15 @@ def dispatch(combo, card, prompt="", timeout=120, receipt_id=None):
     restore = _set_default(seat["provider"], seat["model"])
     try:
         t0 = time.time()
-        r = subprocess.run(["dsh", "--profile", "headless", full],
-                           capture_output=True, text=True, timeout=timeout)
+        try:
+            r = subprocess.run(["dsh", "--profile", "headless", full],
+                               capture_output=True, text=True, timeout=timeout)
+        except FileNotFoundError:
+            return {"mode": "dsh", "provider": seat["provider"], "model": seat["model"],
+                    "role": seat["role"], "ok": False, "exit": "MISSING_BINARY",
+                    "cost_s": 0.0, "output": "",
+                    "fallback": "dsh 二进制缺失：降级窗口会话+人工",
+                    "receipt_id": receipt_id}
         cost_s = round(time.time() - t0, 1)
         ok = r.returncode == 0 and bool(r.stdout.strip())
         return {"mode": "dsh", "provider": seat["provider"], "model": seat["model"],
@@ -119,7 +132,9 @@ def dispatch(combo, card, prompt="", timeout=120, receipt_id=None):
 
 def _selftest():
     fails = []
+    total = [0]
     def check(name, cond):
+        total[0] += 1
         print(("PASS " if cond else "FAIL ") + name)
         if not cond: fails.append(name)
     check("席位映射：A=session 一审承办", SEAT_MAP["A"]["mode"] == "session")
@@ -136,7 +151,7 @@ def _selftest():
     # session 分发
     r = dispatch("A", {"title": "测试"}, "")
     check("A 分发为 session 模式", r["mode"] == "session" and r["ok"])
-    print(f"\n共 5 项断言，失败 {len(fails)}")
+    print(f"\n共 {total[0]} 项断言，失败 {len(fails)}")
     return 1 if fails else 0
 
 
