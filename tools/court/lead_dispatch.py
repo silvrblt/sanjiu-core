@@ -39,19 +39,33 @@ def _read_settings():
 
 
 def _write_settings(text):
-    with open(SETTINGS, "w", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(SETTINGS), exist_ok=True)
+    tmp = SETTINGS + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         f.write(text)
+    os.replace(tmp, SETTINGS)  # 原子写
 
 
 def _set_default(provider, model):
-    """临时写 agent-default-model；返回还原函数。"""
+    """临时替换 agent-default-model 节（仅该节，行级精确）；返回还原函数。"""
     original = _read_settings()
-    lines = [l for l in original.splitlines()
-             if not l.strip().startswith(("agent-default-model:", "provider:", "model:"))]
-    lines.append("agent-default-model:")
-    lines.append(f"  provider: {provider}")
-    lines.append(f"  model: {model}")
-    _write_settings("\n".join(lines) + "\n")
+    lines = original.splitlines()
+    out, i, removed = [], 0, False
+    while i < len(lines):
+        line = lines[i]
+        if line.strip() == "agent-default-model:":
+            removed = True
+            i += 1
+            while i < len(lines) and (lines[i].startswith(("  ", "\t"))
+                                       and lines[i].strip().split(":", 1)[0] in ("provider", "model")):
+                i += 1
+            continue
+        out.append(line)
+        i += 1
+    out.append("agent-default-model:")
+    out.append(f"  provider: {provider}")
+    out.append(f"  model: {model}")
+    _write_settings("\n".join(out) + "\n")
 
     def restore():
         _write_settings(original)
@@ -113,12 +127,12 @@ def _selftest():
           "provider": "ark", "model": "doubao-seed-2-1-turbo-260628"})
     check("席位映射：B_appeal=dsh GLM", SEAT_MAP["B_appeal"]["provider"] == "zhipu")
     # settings 写还（不真跑 dsh）
+    original_before = _read_settings()
     restore = _set_default("ark", "doubao-seed-2-1-turbo-260628")
     after = _read_settings()
     check("settings 写入含 provider/model", "provider: ark" in after and "model: doubao-seed-2-1-turbo-260628" in after)
     restore()
-    after2 = _read_settings()
-    check("settings 还原", "provider: ark" not in after2.splitlines())
+    check("settings 还原为原始内容全等", _read_settings() == original_before)
     # session 分发
     r = dispatch("A", {"title": "测试"}, "")
     check("A 分发为 session 模式", r["mode"] == "session" and r["ok"])
@@ -136,7 +150,14 @@ def main(argv):
     card_path = argv[argv.index("--card") + 1]
     prompt = argv[argv.index("--prompt") + 1] if "--prompt" in argv else ""
     timeout = int(argv[argv.index("--timeout") + 1]) if "--timeout" in argv else 120
-    card = json.load(open(card_path, encoding="utf-8"))
+    try:
+        card = json.load(open(card_path, encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print(f"lead_dispatch: 任务卡读取失败（{e}）", file=sys.stderr)
+        return 2
+    if not isinstance(card, dict):
+        print("lead_dispatch: 任务卡必须为 JSON 对象", file=sys.stderr)
+        return 2
     print(json.dumps(dispatch(combo, card, prompt, timeout), ensure_ascii=False, indent=1))
     return 0
 
