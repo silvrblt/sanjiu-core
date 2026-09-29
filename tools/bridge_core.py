@@ -543,11 +543,18 @@ def run_audit(cli_name, args, env):
                   file=sys.stderr)
             _write_exit_code(args.out, 19, "FLOW_ERR_BAD_RECEIPT")
             sys.exit(19)
-        ok, gate_err = FlowGate().gate_check(receipt, card)
+        _gate = FlowGate()
+        ok, gate_err = _gate.gate_check(receipt, card)
         if not ok:
             print(f"{cli_name}: {gate_err} 闸门拒绝（回执校验失败）", file=sys.stderr)
             _write_exit_code(args.out, 19, gate_err or "FLOW_ERR_BAD_RECEIPT")
             sys.exit(19)
+        if args.action:
+            ok, gate_err, gate_msg = _gate.check_round(str(card.get("title", "")), args.action)
+            if not ok:
+                print(f"{cli_name}: {gate_err} {gate_msg}", file=sys.stderr)
+                _write_exit_code(args.out, 19, gate_err)
+                sys.exit(19)
     prov = dict(PROVIDERS[cli_name])
     prov["name"] = cli_name
     key = env.get(prov["key"], "")
@@ -713,6 +720,8 @@ def audit_main(cli_name, argv):
     # ---- 流转回执闸门（2026-09-29 阶段2）：FLOW_GATE_ENFORCE=1 时强制 ----
     p.add_argument("--receipt", default=None, help="立案庭路由回执 JSON 路径（flow_gate 签发）")
     p.add_argument("--card", default=None, help="对应任务卡 JSON 路径（回执校验锚定）")
+    p.add_argument("--action", default=None, choices=["lead_audit", "judge", "appeal"],
+                   help="防扯皮硬计数动作（FLOW_GATE_ENFORCE=1 时与回执一并校验，超限熔断退出码 19）")
     try:
         args = ap.parse_args(argv)
     except SystemExit:

@@ -26,6 +26,8 @@ SEAT_MAP = {
           "model": "doubao-seed-2-1-turbo-260628"},
     "B_appeal": {"role": "三审承办（上诉级）", "mode": "dsh", "provider": "zhipu",
                  "model": "glm-5.3"},
+}
+EXECUTOR_MAP = {
     "codex": {"role": "明确spec编码执行体", "mode": "codex", "note": "codex exec 无头执行（沙箱禁网）"},
 }
 
@@ -81,8 +83,8 @@ def _set_default(provider, model):
     return restore
 
 
-def dispatch(combo, card, prompt="", timeout=120, receipt_id=None):
-    seat = SEAT_MAP[combo]
+def dispatch(combo, card, prompt="", timeout=120, receipt_id=None, seat_override=None):
+    seat = dict(EXECUTOR_MAP[seat_override] if seat_override else SEAT_MAP[combo])
     task_text = " ".join(str(card.get(k) or "") for k in ("title", "description", "prompt"))
     full = f"{prompt}\n\n任务卡：{task_text}" if prompt else f"任务卡：{task_text}"
     if seat["mode"] == "session":
@@ -192,6 +194,9 @@ def main(argv):
     import argparse
     ap = argparse.ArgumentParser(prog="lead_dispatch", description="三审九方承办分发器")
     ap.add_argument("--combo", choices=sorted(SEAT_MAP.keys()))
+    ap.add_argument("--seat", default=None, choices=sorted(EXECUTOR_MAP.keys()),
+                    help="执行体覆盖（codex=明确spec编码；缺省按 combo 席位）")
+    ap.add_argument("--receipt", default=None, help="立案庭回执 JSON（可选，透传+校验）")
     ap.add_argument("--card", default=None)
     ap.add_argument("--prompt", default="")
     ap.add_argument("--timeout", type=int, default=120)
@@ -204,6 +209,10 @@ def main(argv):
         print(json.dumps({"ok": False, "error": "combo_and_card_required"}, ensure_ascii=False))
         return 2
     combo, card_path, prompt, timeout = args.combo, args.card, args.prompt, args.timeout
+    receipt_id = None
+    if args.receipt:
+        with open(args.receipt, encoding="utf-8") as f:
+            receipt_id = json.load(f).get("receipt_id")
     try:
         with open(card_path, encoding="utf-8") as f:
             card = json.load(f)
@@ -213,7 +222,7 @@ def main(argv):
     if not isinstance(card, dict):
         print("lead_dispatch: 任务卡必须为 JSON 对象", file=sys.stderr)
         return 2
-    print(json.dumps(dispatch(combo, card, prompt, timeout), ensure_ascii=False, indent=1))
+    print(json.dumps(dispatch(combo, card, prompt, timeout, receipt_id, args.seat), ensure_ascii=False, indent=1))
     return 0
 
 

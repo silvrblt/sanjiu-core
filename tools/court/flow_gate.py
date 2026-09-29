@@ -307,22 +307,49 @@ def _selftest():
 def main(argv):
     if "--selftest" in argv:
         sys.exit(_selftest())
+    import argparse
+    ap = argparse.ArgumentParser(prog="flow_gate", description="三审九方流转状态机")
+    ap.add_argument("--route", default=None, help="任务卡 JSON 路径：三选一判决并签回执")
+    ap.add_argument("--gate", nargs=2, default=None, metavar=("RECEIPT", "CARD"),
+                    help="回执+任务卡：桥接入口闸门校验")
+    ap.add_argument("--action", default=None, choices=["lead_audit", "judge", "appeal"],
+                    help="防扯皮硬计数动作（配 --gate 使用）")
+    try:
+        args = ap.parse_args(argv)
+    except SystemExit:
+        print(json.dumps({"ok": False, "err": "argparse_error"}, ensure_ascii=False))
+        return 2
     try:
         gate = FlowGate()
     except FlowGateError as e:
         print(json.dumps({"ok": False, "err": e.code, "msg": e.msg}, ensure_ascii=False))
         return 3
-    if "--route" in argv:
-        card = json.load(open(argv[argv.index("--route") + 1], encoding="utf-8"))
-        combo = gate.route(card)
-        print(json.dumps(gate.issue_receipt(card, combo, card.get("type", "")), ensure_ascii=False, indent=1))
-        return 0
-    if "--gate" in argv:
-        receipt = json.load(open(argv[argv.index("--gate") + 1], encoding="utf-8"))
-        card = json.load(open(argv[argv.index("--gate") + 2], encoding="utf-8"))
-        ok, err = gate.gate_check(receipt, card)
-        print(json.dumps({"ok": ok, "err": err}, ensure_ascii=False))
-        return 0 if ok else 2
+    try:
+        if args.route:
+            with open(args.route, encoding="utf-8") as f:
+                card = json.load(f)
+            if not isinstance(card, dict):
+                print(json.dumps({"ok": False, "err": "card_not_object"}, ensure_ascii=False))
+                return 2
+            combo = gate.route(card)
+            print(json.dumps(gate.issue_receipt(card, combo, card.get("type", "")), ensure_ascii=False, indent=1))
+            return 0
+        if args.gate:
+            with open(args.gate[0], encoding="utf-8") as f:
+                receipt = json.load(f)
+            with open(args.gate[1], encoding="utf-8") as f:
+                card = json.load(f)
+            ok, err = gate.gate_check(receipt, card)
+            if ok and args.action:
+                ok, err, msg = gate.check_round(str(card.get("title", "")), args.action)
+                if not ok:
+                    print(json.dumps({"ok": False, "err": err, "msg": msg}, ensure_ascii=False))
+                    return 19
+            print(json.dumps({"ok": ok, "err": err}, ensure_ascii=False))
+            return 0 if ok else 2
+    except (OSError, ValueError) as e:
+        print(json.dumps({"ok": False, "err": "read_error", "msg": str(e)}, ensure_ascii=False))
+        return 2
     print(__doc__)
     return 0
 
