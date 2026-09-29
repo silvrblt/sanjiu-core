@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""三审九方流转状态机 v0（2026-09-29，阶段2 C5 门禁实现）
+"""三审九方流转状态机 v1（2026-09-29，阶段2 C5 门禁实现；二审对抗打回后修复版）
 
 职责（定稿 R02/R03/R07）：
 1. 材料包硬校验：六类包 schema 校验，不符即拒（FLOW_ERR_SCHEMA）；
-2. 防扯皮硬计数：每级 对抗≤1轮 / 裁决≤1轮 / 上诉仅1次，超限熔断转人工；
-3. 回执闸门：立案庭三选一判决签回执，桥接入口 gate_check 无合法回执拒绝审计调用；
-4. 三选一判决：v0 规则版（关键词信号），模型判决可经 lead_route 接入。
+2. 防扯皮硬计数：每级 对抗≤1轮 / 裁决≤1轮 / 上诉仅1次，超限熔断转人工；计数持久化（~/.sanjiu/flow_gate_state.json，原子写）；
+3. 回执闸门：立案庭三选一判决签回执（HMAC-SHA256，密钥 ~/.sanjiu/flow_gate_secret 自动生成 600 权限，禁弱默认密钥），桥接入口 gate_check 无合法回执拒绝审计调用；
+4. 三选一判决（唯一事实源 = routing_rules.yaml flow_signals 节，内置信号仅为 yaml 缺失时的兜底）。
 
 用法：
   python3 flow_gate.py --selftest
@@ -21,9 +21,14 @@ import time
 from datetime import datetime, timezone
 
 import jsonschema
+import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA_PATH = os.path.join(HERE, "schemas", "flow-packages.schema.json")
+RULES_PATH = os.path.join(HERE, "routing_rules.yaml")
+STATE_DIR = os.path.expanduser("~/.sanjiu")
+STATE_PATH = os.path.join(STATE_DIR, "flow_gate_state.json")
+SECRET_PATH = os.path.join(STATE_DIR, "flow_gate_secret")
 
 # 错误码（定稿 Q7：拒绝码与 schema 同源）
 FLOW_ERR_SCHEMA = "FLOW_ERR_SCHEMA"            # 材料包不符 schema
@@ -33,42 +38,93 @@ FLOW_ERR_BAD_RECEIPT = "FLOW_ERR_BAD_RECEIPT"  # 回执校验失败
 FLOW_ERR_MELTDOWN = "FLOW_ERR_MELTDOWN"        # 已熔断
 FLOW_ERR_UNKNOWN_PACKAGE = "FLOW_ERR_UNKNOWN_PACKAGE"
 
-# 强制域信号（routing_rules.yaml 同源语义，v0 规则版）
-FORCED_DOMAINS = ["对外交付", "资金", "财务", "法律", "安全", "框架", "部署", "external_delivery",
-                  "finance", "legal", "security", "framework_change"]
-DIRECT_HINTS = ["问答", "闲聊", "聊天", "翻译一下", "解释一下", "这是什么", "帮我查"]
-BUGFIX_HINTS = ["单文件", "bugfix", "一行", "小修", "改个错别字"]
+# 三选一信号兜底（唯一事实源 = routing_rules.yaml flow_signals 节；此处仅 yaml 缺失时兜底）
+FALLBACK_SIGNALS = {
+    "forced_domains": ["对外交付", "资金", "财务", "法律", "安全", "框架", "部署",
+                       "external_delivery", "finance", "legal", "security", "framework_change"],
+    "direct_hints": ["问答", "闲聊", "聊天", "翻译一下", "解释一下", "这是什么", "帮我查", "qa"],
+}
+
+
+def _load_signals():
+    try:
+        with open(RULES_PATH, encoding="utf-8") as f:
+            rules = yaml.safe_load(f) or {}
+        sig = rules.get("flow_signals") or {}
+        return {
+            "forced_domains": sig.get("forced_domains") or FALLBACK_SIGNALS["forced_domains"],
+            "direct_hints": sig.get("direct_hints") or FALLBACK_SIGNALS["direct_hints"],
+        }
+    except Exception:
+        return dict(FALLBACK_SIGNALS)
+
+
+def _load_secret():
+    """密钥：FLOW_GATE_SECRET 环境变量 > ~/.sanjiu/flow_gate_secret 持久文件（自动生成）。"""
+    if os.environ.get("FLOW_GATE_SECRET"):
+        return os.environ["FLOW_GATE_SECRET"].encode("utf-8")
+    if not os.path.exists(SECRET_PATH):
+        os.makedirs(STATE_DIR, mode=0o700, exist_ok=True)
+        secret = os.urandom(32).hex()
+        with open(SECRET_PATH, "w", encoding="utf-8") as f:
+            f.write(secret)
+        os.chmod(SECRET_PATH, 0o600)
+    with open(SECRET_PATH, encoding="utf-8") as f:
+        return f.read().strip().encode("utf-8")
 
 
 class RoundCounter:
-    """防扯皮硬计数（R07）：lead_audit/judge/appeal 每级各 1 次上限。"""
+    """防扯皮硬计数（R07）：lead_audit/judge/appeal 每级各 1 次上限；状态持久化。"""
 
     LIMITS = {"lead_audit": 1, "judge": 1, "appeal": 1}
 
     def __init__(self):
-        self.state = {}  # task_id -> {action: count}
+        self.path = STATE_PATH
+        self.state = self._load()
+
+    def _load(self):
+        try:
+            with open(self.path, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {}
+
+    def _save(self):
+        os.makedirs(STATE_DIR, mode=0o700, exist_ok=True)
+        tmp = self.path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(self.state, f, ensure_ascii=False)
+        os.replace(tmp, self.path)  # 原子写
 
     def allow(self, task_id, action):
         if action not in self.LIMITS:
             return False, FLOW_ERR_UNKNOWN_PACKAGE
         counts = self.state.setdefault(task_id, {})
         if counts.get(action, 0) >= self.LIMITS[action]:
+            self._save()
             return False, FLOW_ERR_ROUND_LIMIT
         counts[action] = counts.get(action, 0) + 1
+        self._save()
         return True, None
 
     def reset(self, task_id):
         self.state.pop(task_id, None)
+        self._save()
 
 
 class FlowGate:
-    def __init__(self, secret=None):
-        raw = secret or os.environ.get("FLOW_GATE_SECRET") or "dev-insecure-do-not-use-in-prod"
-        self.secret = raw.encode("utf-8")
+    def __init__(self):
+        self.secret = _load_secret()
+        self.signals = _load_signals()
         with open(SCHEMA_PATH, encoding="utf-8") as f:
             self.schema = json.load(f)
         self.counter = RoundCounter()
-        self.meltdown = set()  # 已熔断 task_id
+        self.meltdown = set(self.counter.state.get("__meltdown__", []))
+
+    def _mark_meltdown(self, task_id):
+        self.meltdown.add(task_id)
+        self.counter.state["__meltdown__"] = sorted(self.meltdown)
+        self.counter._save()
 
     # ---- 1. 材料包硬校验 ----
     def validate_package(self, pkg):
@@ -80,13 +136,13 @@ class FlowGate:
         except jsonschema.ValidationError as e:
             return False, [FLOW_ERR_SCHEMA], [e.message]
 
-    # ---- 2. 防扯皮硬计数 ----
+    # ---- 2. 防扯皮硬计数（持久化）----
     def check_round(self, task_id, action):
         if task_id in self.meltdown:
             return False, FLOW_ERR_MELTDOWN, "已熔断：转人工"
         ok, err = self.counter.allow(task_id, action)
         if not ok:
-            self.meltdown.add(task_id)  # 超限熔断
+            self._mark_meltdown(task_id)  # 超限熔断
             return False, FLOW_ERR_MELTDOWN, f"轮次超限({action})：熔断转人工"
         return True, None, None
 
@@ -104,7 +160,7 @@ class FlowGate:
         return {
             "package_version": "1.0",
             "package_type": "receipt",
-            "task_id": card.get("title", "")[:64],
+            "task_id": str(card.get("title", ""))[:64],
             "receipt_id": receipt_id,
             "combo": combo,
             "task_type": task_type,
@@ -134,25 +190,25 @@ class FlowGate:
             return False, FLOW_ERR_BAD_RECEIPT
         return True, None
 
-    # ---- 4. 三选一判决（v0 规则版）----
+    # ---- 4. 三选一判决（唯一事实源 routing_rules.yaml flow_signals）----
     def route(self, card):
         text = " ".join(str(card.get(k) or "") for k in ("title", "description", "prompt", "type"))
-        if card.get("domain") in FORCED_DOMAINS or any(k in text for k in FORCED_DOMAINS):
-            combo = "B"
-        elif any(k in text for k in BUGFIX_HINTS):
-            combo = "A_exception"
-        elif card.get("type") == "qa" or any(k in text for k in DIRECT_HINTS):
-            combo = "direct"
-        else:
-            combo = "A"
-        return combo
+        if card.get("domain") in self.signals["forced_domains"] \
+                or any(k in text for k in self.signals["forced_domains"]):
+            return "B"
+        if card.get("type") == "qa" or any(k in text for k in self.signals["direct_hints"]):
+            return "direct"
+        return "A"
 
 
 def _selftest():
     gate = FlowGate()
     fails = []
+    total = 0
 
     def check(name, cond):
+        nonlocal total
+        total += 1
         if not cond:
             fails.append(name)
         print(("PASS " if cond else "FAIL ") + name)
@@ -179,19 +235,21 @@ def _selftest():
                  "background": "b", "dispute": "d", "business_impact": "i", "options": ["o1"]}
     check("final_package 通过", gate.validate_package(final_pkg)[0])
 
-    # 2. 防扯皮硬计数
+    # 2. 防扯皮硬计数（含持久化跨实例）
     card = {"title": "t1"}
     ok, _, _ = gate.check_round("t1", "lead_audit")
     check("第一轮对抗放行", ok)
     ok2, err2, _ = gate.check_round("t1", "lead_audit")
     check("第二轮对抗熔断", (not ok2) and err2 == FLOW_ERR_MELTDOWN)
-    gate.counter.reset("t1"); gate.meltdown.discard("t1")
+    gate2 = FlowGate()
+    check("熔断状态跨实例持久化", "t1" in gate2.meltdown)
+    gate.counter.reset("t1"); gate.meltdown.discard("t1"); gate.counter._save()
     ok, _, _ = gate.check_round("t1", "appeal")
     ok2, err2, _ = gate.check_round("t1", "appeal")
     check("第二次上诉熔断", (not ok2) and err2 == FLOW_ERR_MELTDOWN)
+    gate.counter.reset("t1"); gate.meltdown.discard("t1"); gate.counter._save()
 
     # 3. 回执闸门
-    gate.counter.reset("t1"); gate.meltdown.discard("t1")
     r = gate.issue_receipt(card, "A", "code_gen")
     ok, err = gate.gate_check(r, card)
     check("合法回执通过", ok and err is None)
@@ -203,11 +261,11 @@ def _selftest():
 
     # 4. 三选一判决
     check("强制域->B", gate.route({"title": "对外交付材料"}) == "B")
-    check("bugfix->A_exception", gate.route({"title": "单文件 bugfix"}) == "A_exception")
     check("问答->direct", gate.route({"type": "qa"}) == "direct")
     check("默认->A", gate.route({"title": "写个工具"}) == "A")
+    check("三选一无第四值", gate.route({"title": "单文件 bugfix"}) == "A")
 
-    print(f"\n共 {9 + 8 + 3 + 4} 项断言，失败 {len(fails)}")
+    print(f"\n共 {total} 项断言，失败 {len(fails)}")
     return 1 if fails else 0
 
 

@@ -1,37 +1,76 @@
-# routing_rules.yaml — 立案庭审级路由规则（唯一事实源，需求文档 v6 定稿 2026-09-03）
-# 使用：python3 route_task.py <任务卡.json>（读 domain/scale/type/history 字段）→ 输出审级组合
-# 版本：v1.0.0（对齐需求文档 v6 §4.2；回测 30 任务后调参，A2 验收前置）
-
 routing_rules:
-  # 判定顺序（分层）：① force_b 域/规模信号（最高优先）→ ② history 辅助（30 天滚动）
-  # → ③ 单文件 bugfix 例外 → ④ simple_a → ⑤ default
   force_b:
-    # 强制 B 类清单（五域 + 跨模块重构 + 历史高错误率）
-    - {signal: domain, value: external_delivery}
-    - {signal: domain, value: finance}
-    - {signal: domain, value: legal}
-    - {signal: domain, value: security}
-    - {signal: domain, value: framework_change}
-    - {signal: scale, value: cross_module_refactor}   # 判据：≥3 模块或 >20 文件
-    - {signal: history, value: error_rate_high_30d_ge5, threshold: 5}  # 30 天滚动 count≥threshold（route() 读 threshold；A2 2026-09-06 结构化）
+  - signal: domain
+    value: external_delivery
+  - signal: domain
+    value: finance
+  - signal: domain
+    value: legal
+  - signal: domain
+    value: security
+  - signal: domain
+    value: framework_change
+  - signal: scale
+    value: cross_module_refactor
+  - signal: history
+    value: error_rate_high_30d_ge5
+    threshold: 5
   simple_a:
-    - {signal: type, value: bugfix}        # 组合 A（bugfix 单文件走例外，见 exceptions）
-    - {signal: type, value: internal_tool}
-    - {signal: scale, value: single_file}
+  - signal: type
+    value: bugfix
+  - signal: type
+    value: internal_tool
+  - signal: scale
+    value: single_file
   exceptions:
-    # 单文件 bugfix 例外：一审承办自审 + 立案庭留痕 + 二审月度抽审覆盖（不整题二审）
-    - {match: [type_bugfix, scale_single_file], route: A_exception, audit: monthly_l2}
+  - match:
+    - type_bugfix
+    - scale_single_file
+    route: A_exception
+    audit: monthly_l2
   trigger_c:
-    # 升级触发器（A 运行中）：一审对抗分歧重大 → 升三审终核
-    - {dispute: major_at_l1, l1_kappa_lt: 0.2, l1_block_rate_gt: 0.3, p0_flag: true}
+  - dispute: major_at_l1
+    l1_kappa_lt: 0.2
+    l1_block_rate_gt: 0.3
+    p0_flag: true
   default: A
-
 combos:
-  A: {name: "一审+二审", desc: "常规：一审承办+对抗 → 分歧 M3 → 二审对抗终核（必经）", cost_factor: 1.0}
-  B: {name: "二审+三审", desc: "高难：二审承办(l2_lead)起步 → 二审对抗 → 分歧 K2.7 → 三审对抗 Qwen 终核 → 分歧 K3", cost_factor: 2.2}
-  A_exception: {name: "一审自审+月度抽审", desc: "单文件 bugfix：一审承办自审 + 留痕 + 二审月度抽审", cost_factor: 0.3}
-  C_trigger: {name: "升级三审终核", desc: "A 运行中一审对抗分歧重大 → 升三审对抗 Qwen 终核（跳过二审）", cost_factor: 1.6}
-  # cost_factor 为待校准假设（需求 v6 §4.1 注）；校准方法 = 台账按任务分组回溯
-
-# 分歧裁决路径：K2.7 = 二审阶段分歧裁决（DS Pro vs 二审承办），可上诉三审；
-# K3 = 三审阶段分歧终局裁决（Qwen vs 三审承办），不再升级
+  A:
+    name: 一审+二审
+    desc: 常规：一审承办+对抗 → 分歧 M3 → 二审对抗终核（必经）
+    cost_factor: 1.0
+  B:
+    name: 二审+三审
+    desc: 高难：二审承办(l2_lead)起步 → 二审对抗 → 分歧 K2.7 → 三审对抗 Qwen 终核 → 分歧 K3
+    cost_factor: 2.2
+  A_exception:
+    name: 一审自审+月度抽审
+    desc: 单文件 bugfix：一审承办自审 + 留痕 + 二审月度抽审
+    cost_factor: 0.3
+  C_trigger:
+    name: 升级三审终核
+    desc: A 运行中一审对抗分歧重大 → 升三审对抗 Qwen 终核（跳过二审）
+    cost_factor: 1.6
+flow_signals:
+  forced_domains:
+  - 对外交付
+  - 资金
+  - 财务
+  - 法律
+  - 安全
+  - 框架
+  - 部署
+  - external_delivery
+  - finance
+  - legal
+  - security
+  - framework_change
+  direct_hints:
+  - 问答
+  - 闲聊
+  - 聊天
+  - 翻译一下
+  - 解释一下
+  - 这是什么
+  - 帮我查
+  - qa

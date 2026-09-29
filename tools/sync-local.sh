@@ -84,7 +84,7 @@ if [ "${1:-}" != "--check" ]; then
     fi
   done
   # 2b2. 立案庭运行位拉取（court 权威：route_task.py + routing_rules.yaml + flow_gate.py + schemas/；2026-09-29 状态机 v0 入同步清单）
-  for f in route_task.py routing_rules.yaml flow_gate.py; do
+  for f in route_task.py routing_rules.yaml flow_gate.py lead_dispatch.py; do
     if ! diff -q "$CORE/tools/court/$f" "$EEP_TOOLS/$f" >/dev/null 2>&1; then
       backup_target "$EEP_TOOLS/$f" "sync-"
       cp "$CORE/tools/court/$f" "$EEP_TOOLS/$f" && echo "  ✓ 运行位 court/$f 已更新（旧版备份）"

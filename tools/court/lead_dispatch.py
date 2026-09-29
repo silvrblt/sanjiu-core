@@ -26,6 +26,7 @@ SEAT_MAP = {
           "model": "doubao-seed-2-1-turbo-260628"},
     "B_appeal": {"role": "三审承办（上诉级）", "mode": "dsh", "provider": "zhipu",
                  "model": "glm-5.3"},
+    "codex": {"role": "明确spec编码执行体", "mode": "codex", "note": "codex exec 无头执行（沙箱禁网）"},
 }
 
 
