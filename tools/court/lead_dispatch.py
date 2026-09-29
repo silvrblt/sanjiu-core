@@ -64,21 +64,22 @@ def dispatch(combo, card, prompt="", timeout=120, receipt_id=None):
     full = f"{prompt}\n\n任务卡：{task_text}" if prompt else f"任务卡：{task_text}"
     if seat["mode"] == "session":
         return {"mode": "session", "role": seat["role"], "note": seat["note"],
-                "instruction": full, "ok": True}
+                "instruction": full, "ok": True, "receipt_id": receipt_id}
     if seat["mode"] == "codex":
         t0 = time.time()
         try:
             r = subprocess.run(["codex", "exec", "--skip-git-repo-check", full],
                                capture_output=True, text=True, timeout=timeout)
             cost_s = round(time.time() - t0, 1)
-            ok = r.returncode == 0 and r.stdout.strip()
+            ok = r.returncode == 0 and bool(r.stdout.strip())
             return {"mode": "codex", "role": seat["role"], "ok": ok, "exit": r.returncode,
                     "cost_s": cost_s, "output": r.stdout.strip()[:500],
-                    "fallback": "窗口会话+人工" if not ok else None}
+                    "fallback": "窗口会话+人工" if not ok else None,
+                    "receipt_id": receipt_id}
         except subprocess.TimeoutExpired:
             return {"mode": "codex", "role": seat["role"], "ok": False, "cost_s": timeout,
                     "output": "", "fallback": f"超时>{timeout}s 降级窗口会话+人工",
-                    "gate_record": "FLOW_ERR_MELTDOWN",
+                    "gate_record": "timeout_fallback",
                     "receipt_id": receipt_id}
     restore = _set_default(seat["provider"], seat["model"])
     try:
@@ -86,16 +87,17 @@ def dispatch(combo, card, prompt="", timeout=120, receipt_id=None):
         r = subprocess.run(["dsh", "--profile", "headless", full],
                            capture_output=True, text=True, timeout=timeout)
         cost_s = round(time.time() - t0, 1)
-        ok = r.returncode == 0 and r.stdout.strip()
+        ok = r.returncode == 0 and bool(r.stdout.strip())
         return {"mode": "dsh", "provider": seat["provider"], "model": seat["model"],
                 "role": seat["role"], "ok": ok, "exit": r.returncode, "cost_s": cost_s,
                 "output": r.stdout.strip()[:500],
-                "fallback": "窗口会话+人工" if not ok else None}
+                "fallback": "窗口会话+人工" if not ok else None,
+                "receipt_id": receipt_id}
     except subprocess.TimeoutExpired:
         return {"mode": "dsh", "provider": seat["provider"], "model": seat["model"],
                 "role": seat["role"], "ok": False, "cost_s": timeout,
                 "output": "", "fallback": f"超时>{timeout}s 降级窗口会话+人工",
-                "gate_record": "FLOW_ERR_MELTDOWN",
+                "gate_record": "timeout_fallback",
                 "receipt_id": receipt_id}
     finally:
         restore()
