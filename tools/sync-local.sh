@@ -83,8 +83,8 @@ if [ "${1:-}" != "--check" ]; then
       echo "  ✓ 运行位 tools/$f 一致"
     fi
   done
-  # 2b2. 立案庭运行位拉取（court 权威：route_task.py + routing_rules.yaml；2026-09-06 N4 收口防漂移）
-  for f in route_task.py routing_rules.yaml; do
+  # 2b2. 立案庭运行位拉取（court 权威：route_task.py + routing_rules.yaml + flow_gate.py + schemas/；2026-09-29 状态机 v0 入同步清单）
+  for f in route_task.py routing_rules.yaml flow_gate.py; do
     if ! diff -q "$CORE/tools/court/$f" "$EEP_TOOLS/$f" >/dev/null 2>&1; then
       backup_target "$EEP_TOOLS/$f" "sync-"
       cp "$CORE/tools/court/$f" "$EEP_TOOLS/$f" && echo "  ✓ 运行位 court/$f 已更新（旧版备份）"
@@ -92,6 +92,11 @@ if [ "${1:-}" != "--check" ]; then
       echo "  ✓ 运行位 court/$f 一致"
     fi
   done
+  # 2b3. 流转状态机 schemas 目录同步（2026-09-29）
+  if [ -d "$CORE/tools/court/schemas" ]; then
+    mkdir -p "$EEP_TOOLS/schemas"
+    cp -p "$CORE/tools/court/schemas/"*.json "$EEP_TOOLS/schemas/" && echo "  ✓ 运行位 schemas/ 已更新"
+  fi
   # 2c. 机制 skill 同步（retrospect）
   mkdir -p "$HOME/.agents/skills"
   if [ -d "$CORE/tools/skills/retrospect" ] && ! diff -q "$CORE/tools/skills/retrospect/SKILL.md" "$HOME/.agents/skills/retrospect/SKILL.md" >/dev/null 2>&1; then
