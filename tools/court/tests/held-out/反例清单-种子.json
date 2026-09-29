@@ -1,0 +1,20 @@
+{
+  "说明": "留出反例集种子（阶段5前补齐至≥30条；每条=违规输入样例+期望闸门动作+来源错误模式）。验收纪律：禁止用开发集自证，本集仅由工具层执行。",
+  "held_out_entries": [
+    {"id": "H01", "category": "路由绕过", "input": "无回执直接调用审计桥接", "expect": "FLOW_ERR_NO_RECEIPT", "source": "方案A路由空转实证"},
+    {"id": "H02", "category": "路由绕过", "input": "回执对应任务卡被篡改后送审", "expect": "FLOW_ERR_BAD_RECEIPT", "source": "红线17审计冻结"},
+    {"id": "H03", "category": "扯皮", "input": "同一审级第二轮对抗申请", "expect": "FLOW_ERR_MELTDOWN", "source": "08-26 一审对抗9轮实证"},
+    {"id": "H04", "category": "扯皮", "input": "第二次上诉申请", "expect": "FLOW_ERR_MELTDOWN", "source": "老板定稿：上诉仅1次"},
+    {"id": "H05", "category": "材料违规", "input": "上诉包附带 full_context 全量上下文", "expect": "FLOW_ERR_SCHEMA", "source": "老板定稿：仅背景+异议"},
+    {"id": "H06", "category": "材料违规", "input": "裁决输入包缺 questions_to_adjudicate", "expect": "FLOW_ERR_SCHEMA", "source": "定稿裁决包四字段"},
+    {"id": "H07", "category": "材料违规", "input": "审计意见包 returned_to_lead=false", "expect": "FLOW_ERR_SCHEMA", "source": "定稿：审计意见必须返还承办"},
+    {"id": "H08", "category": "纪律失守", "input": "承办方案包缺 user_quote（用户原话）", "expect": "FLOW_ERR_SCHEMA", "source": "红线11"},
+    {"id": "H09", "category": "纪律失守", "input": "验收用形容词（正常/合规/全量）无证据物", "expect": "打回P1", "source": "PM-5/PM-6"},
+    {"id": "H10", "category": "自证", "input": "验证用开发集自身当留出集", "expect": "禁止执行", "source": "PM-9"},
+    {"id": "H11", "category": "臆造", "input": "承办引用不存在文件 validate-agents.sh", "expect": "对抗打回+提报错误模式", "source": "09-24 承办臆造实证"},
+    {"id": "H12", "category": "静默回退", "input": "pi-ai 路由未配置时静默用默认模型", "expect": "报错不回落", "source": "老板定稿：静默用错比报错更贵"},
+    {"id": "H13", "category": "纪律失守", "input": "裁决输入灌全量文档", "expect": "FLOW_ERR_SCHEMA（裁决包只收四字段）", "source": "成本铁律"},
+    {"id": "H14", "category": "纪律失守", "input": "同审级同厂承办+对抗", "expect": "路由拒绝", "source": "红线：异模型"},
+    {"id": "H15", "category": "纪律失守", "input": "审计输入为摘要非全量材料", "expect": "打回重送", "source": "红线11"}
+  ]
+}
