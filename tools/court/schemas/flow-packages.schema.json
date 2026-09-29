@@ -1,0 +1,442 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sanjiu-core/tools/court/schemas/flow-packages.schema.json",
+  "title": "三审九方流转材料包 Schema（C5 门禁，2026-09-29）",
+  "description": "四包+上诉包+终判包+回执的结构化硬校验。状态机对每次流转的输入包执行校验，不符即拒绝流转并返回错误码。",
+  "$defs": {
+    "issue_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "severity",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "P0",
+            "P1",
+            "P2"
+          ]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "objection_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issue_id",
+        "objection",
+        "basis"
+      ],
+      "properties": {
+        "issue_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "base": {
+      "type": "object",
+      "required": [
+        "package_version",
+        "package_type",
+        "task_id"
+      ],
+      "properties": {
+        "package_version": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "package_type": {
+          "type": "string"
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "title": "lead_package 承办方案包",
+      "additionalProperties": false,
+      "required": [
+        "package_version",
+        "package_type",
+        "task_id",
+        "user_quote",
+        "requirement_analysis",
+        "proposal",
+        "basis"
+      ],
+      "properties": {
+        "package_version": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "package_type": {
+          "const": "lead_package"
+        },
+        "user_quote": {
+          "type": "string",
+          "minLength": 1,
+          "description": "用户原话全文"
+        },
+        "requirement_analysis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "proposal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    {
+      "title": "audit_package 审计意见包（结构化返还承办）",
+      "additionalProperties": false,
+      "required": [
+        "package_version",
+        "package_type",
+        "task_id",
+        "verdict",
+        "issue_list",
+        "evidence_mapping",
+        "returned_to_lead"
+      ],
+      "properties": {
+        "package_version": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "package_type": {
+          "const": "audit_package"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "conditional",
+            "reject"
+          ]
+        },
+        "issue_list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/issue_item"
+          }
+        },
+        "evidence_mapping": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "requirement",
+              "evidence"
+            ],
+            "properties": {
+              "requirement": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "disagreement_points": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "escalation_suggestion": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "returned_to_lead": {
+          "const": true
+        }
+      }
+    },
+    {
+      "title": "judge_input_package 裁决输入包（异议即裁决，四字段）",
+      "additionalProperties": false,
+      "required": [
+        "package_version",
+        "package_type",
+        "task_id",
+        "user_quote",
+        "lead_analysis",
+        "audit_opinion",
+        "questions_to_adjudicate"
+      ],
+      "properties": {
+        "package_version": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "package_type": {
+          "const": "judge_input_package"
+        },
+        "user_quote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lead_analysis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audit_opinion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "questions_to_adjudicate": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "title": "judge_output_package 裁决输出包（唯一结论+依据，返还双方）",
+      "additionalProperties": false,
+      "required": [
+        "package_version",
+        "package_type",
+        "task_id",
+        "verdict",
+        "basis",
+        "returned_to_both"
+      ],
+      "properties": {
+        "package_version": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "package_type": {
+          "const": "judge_output_package"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "accept_lead",
+            "accept_antagonist",
+            "new_proposal"
+          ]
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "returned_to_both": {
+          "const": true
+        }
+      }
+    },
+    {
+      "title": "appeal_package 上诉包（仅背景+异议，禁全量上下文）",
+      "additionalProperties": false,
+      "required": [
+        "package_version",
+        "package_type",
+        "task_id",
+        "background",
+        "objection_items"
+      ],
+      "maxProperties": 8,
+      "properties": {
+        "package_version": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "package_type": {
+          "const": "appeal_package"
+        },
+        "background": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objection_items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/objection_item"
+          }
+        }
+      }
+    },
+    {
+      "title": "final_package 终判包（商业决策用户终判）",
+      "additionalProperties": false,
+      "required": [
+        "package_version",
+        "package_type",
+        "task_id",
+        "background",
+        "dispute",
+        "business_impact",
+        "options"
+      ],
+      "properties": {
+        "package_version": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "package_type": {
+          "const": "final_package"
+        },
+        "background": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dispute": {
+          "type": "string",
+          "minLength": 1
+        },
+        "business_impact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "title": "receipt 路由回执（桥接入口硬校验闸门）",
+      "additionalProperties": false,
+      "required": [
+        "package_version",
+        "package_type",
+        "task_id",
+        "receipt_id",
+        "combo",
+        "task_type",
+        "issued_at",
+        "card_sha256",
+        "signature"
+      ],
+      "properties": {
+        "package_version": {
+          "type": "string",
+          "enum": [
+            "1.0"
+          ]
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "package_type": {
+          "const": "receipt"
+        },
+        "receipt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "combo": {
+          "type": "string",
+          "enum": [
+            "direct",
+            "A",
+            "B",
+            "A_exception",
+            "C_trigger"
+          ]
+        },
+        "task_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "card_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  ]
+}
