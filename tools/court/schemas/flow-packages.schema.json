@@ -153,9 +153,8 @@
         "verdict": {
           "type": "string",
           "enum": [
-            "pass",
-            "conditional",
-            "reject"
+            "approve",
+            "revise"
           ]
         },
         "disagreement_points": {
@@ -179,9 +178,47 @@
         "diff_index": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/issue_item"
-          },
-          "description": "差异索引（修改版 vs 原方案的变更点，供承办逐条表态）"
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "severity",
+              "original",
+              "revised",
+              "location",
+              "reason"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "P0",
+                  "P1",
+                  "P2"
+                ]
+              },
+              "original": {
+                "type": "string",
+                "minLength": 1
+              },
+              "revised": {
+                "type": "string",
+                "minLength": 1
+              },
+              "location": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         }
       }
     },
@@ -429,7 +466,8 @@
         "package_type",
         "task_id",
         "accepted_items",
-        "rejected_items"
+        "rejected_items",
+        "resolution"
       ],
       "properties": {
         "package_version": {
@@ -477,6 +515,15 @@
               }
             }
           }
+        },
+        "resolution": {
+          "type": "string",
+          "enum": [
+            "accept_all",
+            "partial_reject",
+            "reject_all"
+          ],
+          "description": "承办对修订版方案的总体表态；accept_all=修订版即敲定方案（双方留痕落地）"
         }
       }
     }

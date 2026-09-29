@@ -260,8 +260,9 @@ def _selftest():
     appeal_full = dict(appeal_ok); appeal_full["full_context"] = "全套材料（违规）"
     check("appeal_package 带全量上下文拒绝", not gate.validate_package(appeal_full)[0])
     audit_ok = {"package_version": "1.0", "package_type": "audit_package", "task_id": f"t1-{_pid}",
-                "verdict": "conditional", "revised_proposal": "修改版方案全文",
-                "diff_index": [{"id": "d1", "severity": "P1", "evidence": "e"}],
+                "verdict": "revise", "revised_proposal": "修改版方案全文",
+                "diff_index": [{"id": "d1", "severity": "P1", "original": "原表述",
+                                "revised": "新表述", "location": "位置", "reason": "理由"}],
                 "returned_to_lead": True}
     check("audit_package 修订版方案包通过", gate.validate_package(audit_ok)[0])
     audit_bad = dict(audit_ok); audit_bad["returned_to_lead"] = False
@@ -269,7 +270,8 @@ def _selftest():
     audit_norev = dict(audit_ok); audit_norev.pop("revised_proposal")
     check("audit_package 缺修订版方案拒绝", not gate.validate_package(audit_norev)[0])
     lead_resp = {"package_version": "1.0", "package_type": "lead_response_package",
-                 "task_id": f"t1-{_pid}", "accepted_items": ["d2"],
+                 "task_id": f"t1-{_pid}", "resolution": "partial_reject",
+                 "accepted_items": ["d2"],
                  "rejected_items": [{"diff_id": "d1", "opinion": "不接受", "basis": "依据"}]}
     check("lead_response_package 通过", gate.validate_package(lead_resp)[0])
     judge_in = {"package_version": "1.0", "package_type": "judge_input_package", "task_id": f"t1-{_pid}",
