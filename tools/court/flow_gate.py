@@ -37,6 +37,16 @@ FLOW_ERR_NO_RECEIPT = "FLOW_ERR_NO_RECEIPT"    # 无回执
 FLOW_ERR_BAD_RECEIPT = "FLOW_ERR_BAD_RECEIPT"  # 回执校验失败
 FLOW_ERR_MELTDOWN = "FLOW_ERR_MELTDOWN"        # 已熔断
 FLOW_ERR_UNKNOWN_PACKAGE = "FLOW_ERR_UNKNOWN_PACKAGE"
+FLOW_ERR_CONFIG = "FLOW_ERR_CONFIG"          # 唯一事实源缺失/损坏
+
+
+class FlowGateError(Exception):
+    """稳定错误形态：错误码 + 可测路径（不裸抛 ValueError）。"""
+
+    def __init__(self, code, msg):
+        super().__init__(f"{code}: {msg}")
+        self.code = code
+        self.msg = msg
 
 # 三选一信号兜底（唯一事实源 = routing_rules.yaml flow_signals 节；此处仅 yaml 缺失时兜底）
 FALLBACK_SIGNALS = {
@@ -53,7 +63,8 @@ def _load_signals():
         rules = yaml.safe_load(f) or {}
     sig = rules.get("flow_signals")
     if not sig or not sig.get("forced_domains") or not sig.get("direct_hints"):
-        raise ValueError("routing_rules.yaml flow_signals 节缺失/为空：拒绝静默兜底（唯一事实源）")
+        raise FlowGateError(FLOW_ERR_CONFIG,
+                            "routing_rules.yaml flow_signals 节缺失/为空：拒绝静默兜底（唯一事实源）")
     return {"forced_domains": list(sig["forced_domains"]),
             "direct_hints": list(sig["direct_hints"])}
 
@@ -84,9 +95,19 @@ class RoundCounter:
     def _load(self):
         try:
             with open(self.path, encoding="utf-8") as f:
-                return json.load(f)
+                self.state = json.load(f)
         except (OSError, ValueError):
-            return {}
+            self.state = {}
+        # 旧版平铺结构迁移（含 __meltdown__ 保留键版本）
+        if "__meltdown__" in self.state and "counts" not in self.state:
+            migrated = {"counts": {}, "meltdown": self.state.get("__meltdown__", [])}
+            for k, v in self.state.items():
+                if k != "__meltdown__" and isinstance(v, dict):
+                    migrated["counts"][k] = v
+            self.state = migrated
+        self.state.setdefault("counts", {})
+        self.state.setdefault("meltdown", [])
+        return self.state
 
     def _save(self):
         os.makedirs(STATE_DIR, mode=0o700, exist_ok=True)
@@ -98,7 +119,7 @@ class RoundCounter:
     def allow(self, task_id, action):
         if action not in self.LIMITS:
             return False, FLOW_ERR_UNKNOWN_PACKAGE
-        counts = self.state.setdefault(task_id, {})
+        counts = self.state["counts"].setdefault(task_id, {})
         if counts.get(action, 0) >= self.LIMITS[action]:
             self._save()
             return False, FLOW_ERR_ROUND_LIMIT
@@ -107,7 +128,7 @@ class RoundCounter:
         return True, None
 
     def reset(self, task_id):
-        self.state.pop(task_id, None)
+        self.state["counts"].pop(task_id, None)
         self._save()
 
 
@@ -118,18 +139,18 @@ class FlowGate:
         with open(SCHEMA_PATH, encoding="utf-8") as f:
             self.schema = json.load(f)
         self.counter = RoundCounter()
-        self.meltdown = set(self.counter.state.get("__meltdown__", []))
+        self.meltdown = set(self.counter.state.get("meltdown", []))
 
     def _mark_meltdown(self, task_id):
         self.meltdown.add(task_id)
-        self.counter.state["__meltdown__"] = sorted(self.meltdown)
+        self.counter.state["meltdown"] = sorted(self.meltdown)
         self.counter._save()
 
     def reset_task(self, task_id):
-        """复位任务全部状态：轮次计数 + 熔断标记（持久化同步）。"""
+        """复位任务全部状态：轮次计数 + 熔断标记（持久化同步，保留键隔离）。"""
         self.counter.reset(task_id)
         self.meltdown.discard(task_id)
-        self.counter.state["__meltdown__"] = sorted(self.meltdown)
+        self.counter.state["meltdown"] = sorted(self.meltdown)
         self.counter._save()
 
     # ---- 1. 材料包硬校验 ----
@@ -281,7 +302,11 @@ def _selftest():
 def main(argv):
     if "--selftest" in argv:
         sys.exit(_selftest())
-    gate = FlowGate()
+    try:
+        gate = FlowGate()
+    except FlowGateError as e:
+        print(json.dumps({"ok": False, "err": e.code, "msg": e.msg}, ensure_ascii=False))
+        return 3
     if "--route" in argv:
         card = json.load(open(argv[argv.index("--route") + 1], encoding="utf-8"))
         combo = gate.route(card)
