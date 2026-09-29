@@ -314,6 +314,7 @@ def main(argv):
                     help="回执+任务卡：桥接入口闸门校验")
     ap.add_argument("--action", default=None, choices=["lead_audit", "judge", "appeal"],
                     help="防扯皮硬计数动作（配 --gate 使用）")
+    ap.add_argument("--validate", default=None, help="材料包 JSON 路径：六类包 schema 校验接线点")
     try:
         args = ap.parse_args(argv)
     except SystemExit:
@@ -334,6 +335,12 @@ def main(argv):
             combo = gate.route(card)
             print(json.dumps(gate.issue_receipt(card, combo, card.get("type", "")), ensure_ascii=False, indent=1))
             return 0
+        if args.validate:
+            with open(args.validate, encoding="utf-8") as f:
+                pkg = json.load(f)
+            ok, errs, msgs = gate.validate_package(pkg)
+            print(json.dumps({"ok": ok, "err": errs, "msg": msgs}, ensure_ascii=False))
+            return 0 if ok else 2
         if args.gate:
             with open(args.gate[0], encoding="utf-8") as f:
                 receipt = json.load(f)
