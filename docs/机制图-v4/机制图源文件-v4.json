@@ -1,0 +1,516 @@
+{
+ "schema_version": 1,
+ "diagram_type": "workflow",
+ "lanes": [
+  {
+   "id": "entry",
+   "label": "立案庭"
+  },
+  {
+   "id": "a1",
+   "label": "模式A·一审"
+  },
+  {
+   "id": "a2",
+   "label": "模式A·二审（上诉级）"
+  },
+  {
+   "id": "b2",
+   "label": "模式B·二审"
+  },
+  {
+   "id": "b3",
+   "label": "模式B·三审（上诉级）"
+  },
+  {
+   "id": "gate",
+   "label": "收口"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "task",
+   "lane": "entry",
+   "col": 0,
+   "type": "external",
+   "label": "任务进入"
+  },
+  {
+   "id": "court",
+   "lane": "entry",
+   "col": 1,
+   "type": "backend",
+   "label": "立案庭路由",
+   "sublabel": "三选一判决"
+  },
+  {
+   "id": "direct",
+   "lane": "entry",
+   "col": 3,
+   "type": "backend",
+   "label": "直接回答",
+   "sublabel": "普通问答"
+  },
+  {
+   "id": "l1l",
+   "lane": "a1",
+   "col": 2,
+   "type": "backend",
+   "label": "一审承办",
+   "sublabel": "分析需求·出方案"
+  },
+  {
+   "id": "l1a",
+   "lane": "a1",
+   "col": 3,
+   "type": "backend",
+   "label": "一审对抗",
+   "sublabel": "全量指令下审计"
+  },
+  {
+   "id": "l1j",
+   "lane": "a1",
+   "col": 5,
+   "type": "backend",
+   "label": "一审裁决",
+   "sublabel": "分歧裁决"
+  },
+  {
+   "id": "l2l",
+   "lane": "a2",
+   "col": 2,
+   "type": "backend",
+   "label": "二审承办",
+   "sublabel": "上诉分析·出方案"
+  },
+  {
+   "id": "l2a",
+   "lane": "a2",
+   "col": 3,
+   "type": "backend",
+   "label": "二审对抗",
+   "sublabel": "结构化意见返还"
+  },
+  {
+   "id": "l2j",
+   "lane": "a2",
+   "col": 5,
+   "type": "backend",
+   "label": "二审裁决",
+   "sublabel": "终局裁决·A"
+  },
+  {
+   "id": "b2l",
+   "lane": "b2",
+   "col": 0,
+   "type": "backend",
+   "label": "二审承办",
+   "sublabel": "分析需求·出方案"
+  },
+  {
+   "id": "b2a",
+   "lane": "b2",
+   "col": 1,
+   "type": "backend",
+   "label": "二审对抗",
+   "sublabel": "全量审计"
+  },
+  {
+   "id": "b2j",
+   "lane": "b2",
+   "col": 3,
+   "type": "backend",
+   "label": "二审裁决",
+   "sublabel": "分歧裁决",
+   "width": 60
+  },
+  {
+   "id": "b3l",
+   "lane": "b3",
+   "col": 0,
+   "type": "backend",
+   "label": "三审承办",
+   "sublabel": "上诉分析·出方案"
+  },
+  {
+   "id": "b3a",
+   "lane": "b3",
+   "col": 1,
+   "type": "backend",
+   "label": "三审对抗",
+   "sublabel": "结构化返还"
+  },
+  {
+   "id": "b3j",
+   "lane": "b3",
+   "col": 3,
+   "type": "backend",
+   "label": "三审裁决",
+   "sublabel": "终局裁决·B",
+   "width": 60
+  },
+  {
+   "id": "ship",
+   "lane": "gate",
+   "col": 5,
+   "type": "backend",
+   "label": "合入生效",
+   "sublabel": "五处一致+台账"
+  },
+  {
+   "id": "human",
+   "lane": "gate",
+   "col": 4,
+   "type": "backend",
+   "label": "用户终判",
+   "sublabel": "商业决策"
+  }
+ ],
+ "edges": [
+  {
+   "from": "task",
+   "to": "court",
+   "label": "任务进入",
+   "fromSide": "right",
+   "toSide": "left",
+   "labelAt": [
+    154,
+    159
+   ]
+  },
+  {
+   "from": "court",
+   "to": "direct",
+   "label": "普通问答",
+   "fromSide": "right",
+   "toSide": "left"
+  },
+  {
+   "from": "court",
+   "to": "l1l",
+   "label": "模式A",
+   "fromSide": "bottom",
+   "toSide": "top"
+  },
+  {
+   "from": "court",
+   "to": "b2l",
+   "label": "模式B",
+   "fromSide": "bottom",
+   "toSide": "top"
+  },
+  {
+   "from": "l1l",
+   "to": "l1a",
+   "label": "方案送审",
+   "fromSide": "right",
+   "toSide": "left",
+   "labelAt": [
+    365,
+    203
+   ]
+  },
+  {
+   "from": "l1a",
+   "to": "l1l",
+   "label": "意见返还",
+   "fromSide": "left",
+   "toSide": "right",
+   "labelAt": [
+    365,
+    281
+   ]
+  },
+  {
+   "from": "l1a",
+   "to": "l1j",
+   "label": "异议→裁决",
+   "fromSide": "right",
+   "toSide": "left"
+  },
+  {
+   "from": "l1j",
+   "to": "l2l",
+   "label": "不服上诉·仅背景+异议",
+   "fromSide": "bottom",
+   "toSide": "top"
+  },
+  {
+   "from": "l2l",
+   "to": "l2a",
+   "label": "上诉方案送审",
+   "fromSide": "right",
+   "toSide": "left",
+   "labelAt": [
+    365,
+    327
+   ]
+  },
+  {
+   "from": "l2a",
+   "to": "l2l",
+   "label": "意见返还",
+   "fromSide": "left",
+   "toSide": "right",
+   "labelAt": [
+    365,
+    407
+   ]
+  },
+  {
+   "from": "l2a",
+   "to": "l2j",
+   "label": "异议→裁决",
+   "fromSide": "right",
+   "toSide": "left"
+  },
+  {
+   "from": "l2j",
+   "to": "ship",
+   "label": "终局合入",
+   "fromSide": "bottom",
+   "via": [
+    [
+     625,
+     560
+    ]
+   ]
+  },
+  {
+   "from": "b2l",
+   "to": "b2a",
+   "label": "方案送审",
+   "fromSide": "right",
+   "toSide": "left",
+   "labelAt": [
+    154,
+    451
+   ]
+  },
+  {
+   "from": "b2a",
+   "to": "b2l",
+   "label": "意见返还",
+   "fromSide": "left",
+   "toSide": "right",
+   "labelAt": [
+    154,
+    528
+   ]
+  },
+  {
+   "from": "b2a",
+   "to": "b2j",
+   "label": "异议→裁决",
+   "fromSide": "right",
+   "toSide": "left"
+  },
+  {
+   "from": "b2j",
+   "to": "b3l",
+   "label": "不服上诉·仅背景+异议",
+   "fromSide": "bottom",
+   "toSide": "top"
+  },
+  {
+   "from": "b3l",
+   "to": "b3a",
+   "label": "上诉方案送审",
+   "fromSide": "right",
+   "toSide": "left",
+   "labelAt": [
+    154,
+    575
+   ]
+  },
+  {
+   "from": "b3a",
+   "to": "b3l",
+   "label": "意见返还",
+   "fromSide": "left",
+   "toSide": "right",
+   "labelAt": [
+    154,
+    655
+   ]
+  },
+  {
+   "from": "b3a",
+   "to": "b3j",
+   "label": "异议→裁决",
+   "fromSide": "right",
+   "toSide": "left"
+  },
+  {
+   "from": "b3j",
+   "to": "ship",
+   "label": "终局合入",
+   "fromSide": "bottom",
+   "toSide": "top"
+  },
+  {
+   "from": "ship",
+   "to": "human",
+   "label": "商业决策",
+   "labelAt": [
+    563,
+    690
+   ],
+   "fromSide": "left",
+   "toSide": "right"
+  },
+  {
+   "from": "human",
+   "to": "ship",
+   "label": "拍板",
+   "labelAt": [
+    563,
+    725
+   ],
+   "fromSide": "right",
+   "toSide": "left"
+  }
+ ],
+ "cards": [
+  {
+   "dot": "cyan",
+   "title": "立案庭路由：三选一判决",
+   "items": [
+    "① 普通问答类：不调用三审九方，当前模型直接回答",
+    "② 模式 A（一审+二审）：先转一审承办，进入一审程序",
+    "③ 模式 B（二审+三审）：先转二审承办，进入二审程序"
+   ]
+  },
+  {
+   "dot": "violet",
+   "title": "九席矩阵（价格序：输入价升序）",
+   "items": [
+    "一审：承办 DeepSeek V4 Flash ｜ 对抗 混元 Hy3 ｜ 裁决 MiniMax M3",
+    "二审：承办 豆包 2.1 Turbo ｜ 对抗 DeepSeek V4 Pro ｜ 裁决 Kimi K2.7 Code",
+    "三审：承办 GLM-5.3 ｜ 对抗 Qwen3.8 Max ｜ 裁决 Kimi K3",
+    "同审级同厂互斥；承办与对抗必须异模型（杜绝自审自纠）"
+   ]
+  },
+  {
+   "dot": "amber",
+   "title": "伴行机制（机制包 12：模型更替）",
+   "items": [
+    "触发：T1 指定 / T2 评分——纵向连续 2 次低于同席位历史均值，或连续 3 次低于阈值 60",
+    "横向：低于同审级他模评分（样本≥3）、自身历史≥2 且连续 2 次",
+    "定位：价格初筛（审级区间互斥）→ 能力锚定（±0.5 去抖）",
+    "新老模型真实任务并行评测 → 评分比对 → 决定是否更换；7 天冷却 + 互斥锁"
+   ]
+  },
+  {
+   "dot": "rose",
+   "title": "流转纪律（防扯皮·硬规则）",
+   "items": [
+    "审计意见返还承办：无异议 → 修正落地；有异议 → 直接转裁决（禁止来回扯皮）",
+    "裁决意见返还承办与审计：任一方不服 → 上诉下一审级，仅带背景+异议问题（禁止重发全套意见）",
+    "上诉级：承办分析 → 审计反馈 → 仍异议 → 裁决 = 终局；商业决策 → 裁决整理问题 → 用户终判",
+    "每席验收纪律：A–V 22 项 + S8 审计维度 + 红线清单（桥接自动注入）"
+   ]
+  },
+  {
+   "dot": "emerald",
+   "title": "支撑层：工具·技能·台账",
+   "items": [
+    "流程嵌入技能：requirement-analysis / ponytail / code-review",
+    "bridge_core：统一桥接（输出约束 / 错误模式注入 / 预算硬顶）",
+    "errors-ledger：错误模式库（双控更新）；决策 + 成本双台账",
+    "视觉三席：读图 / 生图 / 视频——工具席只采证据，不参与裁决"
+   ]
+  }
+ ],
+ "meta": {
+  "title": "三审九方任务处理机制 v4（三选一 · 双模式 · 上诉链）",
+  "locale": "zh-CN",
+  "quality_profile": "showcase",
+  "legend": {
+   "mode": "hidden"
+  },
+  "views": [
+   {
+    "id": "overview",
+    "label": "全貌",
+    "focus": [
+     "task",
+     "court",
+     "direct",
+     "l1l",
+     "l1a",
+     "l1j",
+     "l2l",
+     "l2a",
+     "l2j",
+     "b2l",
+     "b2a",
+     "b2j",
+     "b3l",
+     "b3a",
+     "b3j",
+     "ship",
+     "human"
+    ],
+    "note": "立案庭三选一：普通问答直接回答；模式 A 走一审+二审；模式 B 走二审+三审。"
+   },
+   {
+    "id": "mode-a",
+    "label": "模式 A：一审+二审",
+    "focus": [
+     "task",
+     "court",
+     "direct",
+     "l1l",
+     "l1a",
+     "l1j",
+     "l2l",
+     "l2a",
+     "l2j",
+     "ship",
+     "human"
+    ],
+    "note": "一审承办出方案 → 一审对抗审计（意见返还承办）→ 异议交一审裁决 → 任一方不服 → 上诉二审承办 → 二审对抗 → 仍异议 → 二审裁决 = 终局。"
+   },
+   {
+    "id": "mode-b",
+    "label": "模式 B：二审+三审",
+    "focus": [
+     "task",
+     "court",
+     "direct",
+     "b2l",
+     "b2a",
+     "b2j",
+     "b3l",
+     "b3a",
+     "b3j",
+     "ship",
+     "human"
+    ],
+    "note": "二审承办出方案 → 二审对抗审计 → 异议交二审裁决 → 任一方不服 → 上诉三审承办 → 三审对抗 → 仍异议 → 三审裁决 = 终局。"
+   },
+   {
+    "id": "appeal",
+    "label": "上诉与终局",
+    "focus": [
+     "l1j",
+     "l2l",
+     "l2a",
+     "l2j",
+     "b2j",
+     "b3l",
+     "b3a",
+     "b3j",
+     "ship",
+     "human"
+    ],
+    "note": "上诉仅带背景+异议问题；上诉级裁决为最终意见；涉及商业决策 → 裁决整理问题 → 用户终判 → 合入。"
+   }
+  ],
+  "viewBox": [
+   720,
+   900
+  ]
+ }
+}
