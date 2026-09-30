@@ -1,0 +1,78 @@
+# LEGACY（2026-09-29）：组合判定/异常路由节为 route_task.py 历史规则保留（DEPRECATED）；
+# 现行立案庭三选一由 flow_gate.py 依据本文件 flow_signals 节判决，直答/A/B 三值。
+routing_rules:
+  force_b:
+  - signal: domain
+    value: external_delivery
+  - signal: domain
+    value: finance
+  - signal: domain
+    value: legal
+  - signal: domain
+    value: security
+  - signal: domain
+    value: framework_change
+  - signal: scale
+    value: cross_module_refactor
+  - signal: history
+    value: error_rate_high_30d_ge5
+    threshold: 5
+  simple_a:
+  - signal: type
+    value: bugfix
+  - signal: type
+    value: internal_tool
+  - signal: scale
+    value: single_file
+  exceptions:
+  - match:
+    - type_bugfix
+    - scale_single_file
+    route: A_exception
+    audit: monthly_l2
+  trigger_c:
+  - dispute: major_at_l1
+    l1_kappa_lt: 0.2
+    l1_block_rate_gt: 0.3
+    p0_flag: true
+  default: A
+combos:
+  A:
+    name: 一审+二审
+    desc: 常规：一审承办+对抗 → 分歧 M3 → 二审对抗终核（必经）
+    cost_factor: 1.0
+  B:
+    name: 二审+三审
+    desc: 高难：二审承办(l2_lead)起步 → 二审对抗 → 分歧 K2.7 → 三审对抗 Qwen 终核 → 分歧 K3
+    cost_factor: 2.2
+  A_exception:
+    name: 一审自审+月度抽审
+    desc: 单文件 bugfix：一审承办自审 + 留痕 + 二审月度抽审
+    cost_factor: 0.3
+  C_trigger:
+    name: 升级三审终核
+    desc: A 运行中一审对抗分歧重大 → 升三审对抗 Qwen 终核（跳过二审）
+    cost_factor: 1.6
+flow_signals:
+  forced_domains:
+  - 对外交付
+  - 资金
+  - 财务
+  - 法律
+  - 安全
+  - 框架
+  - 部署
+  - external_delivery
+  - finance
+  - legal
+  - security
+  - framework_change
+  direct_hints:
+  - 问答
+  - 闲聊
+  - 聊天
+  - 翻译一下
+  - 解释一下
+  - 这是什么
+  - 帮我查
+  - qa

@@ -1,0 +1,28 @@
+```python
+import math
+
+def evaluate_rules(customer, rules):
+    MISSING = object()
+    _CMP = ('==', '!=', '>', '>=', '<', '<=')
+
+    def lex(s):
+        toks = []
+        i, n = 0, len(s)
+        while i < n:
+            c = s[i]
+            if c.isspace():
+                i += 1
+            elif c.isalpha() or c == '_':
+                j = i + 1
+                while j < n and (s[j].isalnum() or s[j] == '_'):
+                    j += 1
+                w = s[i:j]
+                toks.append(w if w in ('and', 'or', 'not') else ('id', w))
+                i = j
+            elif c.isdigit() or (c == '.' and i + 1 < n and s[i + 1].isdigit()):
+                j = i
+                while j < n and (s[j].isdigit() or s[j] == '.'):
+                    j += 1
+                toks.append(('num', float(s[i:j])))
+                i = j
+            elif c == "'" or c

@@ -1,0 +1,50 @@
+{
+ "at": "2026-09-09T14:03:58",
+ "命令": "python3 tools/court/lead_route.py /tmp/lead-smoke2.json --force-model doubao-2.1-turbo --out /tmp/lead-real-out.md",
+ "任务卡": {
+  "title": "写一个 Python 函数",
+  "description": "输入字符串列表，返回按长度升序排序的新列表（禁止 import）"
+ },
+ "环境": "mac-mini, sanjiu-core main 分支候选 v1.0.7",
+ "seat 配置": "seats.l2_lead: model=doubao-2.1-turbo, cli=doubao-audit, api_id=doubao-seed-2-1-turbo-260628",
+ "stdout JSON": {
+  "decision": "ranked",
+  "task_type": "code_gen",
+  "model": "doubao-2.1-turbo",
+  "cli": "doubao-audit",
+  "chain": [
+   {
+    "model": "doubao-2.1-turbo",
+    "cli": "doubao-audit",
+    "api_id": "doubao-seed-2-1-turbo-260628",
+    "api_id_source": "seats",
+    "api_id_unverified": false,
+    "ok": true,
+    "err": null,
+    "meta": {
+     "cli": "doubao-audit",
+     "model": "doubao-seed-2-1-turbo-260628",
+     "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+     },
+     "wait_s": 21.6,
+     "fail_class": "ok"
+    }
+   }
+  ],
+  "out": "/tmp/lead-real-out.md",
+  "forced": true,
+  "in_pool": true,
+  "duration_s": 21.7,
+  "note": "承办产出由 doubao-2.1-turbo 生成（类型路由推荐/降级链第 1 位）",
+  "combo": "A",
+  "combo_reason": "默认组合 A"
+ },
+ "stderr": "[lead] 承办候选: doubao-2.1-turbo via doubao-audit --model doubao-seed-2-1-turbo-260628\n",
+ "产出路径": "/tmp/lead-real-out.md",
+ "产出哈希 sha256": "4fe0976f2114819734956d5f9d09e87c9b4755d327b83dffea89f4fe83065161",
+ "产出首 300 字": "### 拆解要点\n1. 函数接收字符串列表入参，返回全新排序后列表，不修改原输入\n2. 使用Python内置`sorted()`函数实现排序，无需导入任何模块\n3. 排序键指定为内置`len`函数，实现按字符串长度升序\n4. 利用`sorted`的稳定排序特性，等长字符串保留原列表相对顺序\n5. 天然兼容空列表、单元素列表等边界场景\n\n---\n\n### 完整可运行代码\n```python\ndef sort_by_length(str_list):\n    \"\"\"\n    输入字符串列表，返回按长度升序排序的新列表（不修改原列表，无import）\n    :param str_list: lis",
+ "耗时 s": 21.7
+}

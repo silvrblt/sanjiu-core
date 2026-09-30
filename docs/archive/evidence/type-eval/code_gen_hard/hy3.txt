@@ -1,0 +1,87 @@
+import ast
+import math
+
+class _MissingField(Exception):
+    pass
+
+def _eval_node(node, customer, in_cond):
+    if isinstance(node, ast.BoolOp):
+        if isinstance(node.op, ast.And):
+            res = True
+            for v in node.values:
+                res = _eval_node(v, customer, in_cond)
+                if not res:
+                    return res
+            return res
+        else:
+            res = False
+            for v in node.values:
+                res = _eval_node(v, customer, in_cond)
+                if res:
+                    return res
+            return res
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, ast.Not):
+            return not _eval_node(node.operand, customer, in_cond)
+        if isinstance(node.op, ast.USub):
+            return -_eval_node(node.operand, customer, in_cond)
+        if isinstance(node.op, ast.UAdd):
+            return +_eval_node(node.operand, customer, in_cond)
+    if isinstance(node, ast.BinOp):
+        l = _eval_node(node.left, customer, in_cond)
+        r = _eval_node(node.right, customer, in_cond)
+        if isinstance(node.op, ast.Add): return l + r
+        if isinstance(node.op, ast.Sub): return l - r
+        if isinstance(node.op, ast.Mult): return l * r
+        if isinstance(node.op, ast.Div): return l / r
+    if isinstance(node, ast.Compare):
+        left = _eval_node(node.left, customer, in_cond)
+        res = True
+        for op, comp in zip(node.ops, node.comparators):
+            right = _eval_node(comp, customer, in_cond)
+            if isinstance(op, ast.Eq): res = res and (left == right)
+            elif isinstance(op, ast.NotEq): res = res and (left != right)
+            elif isinstance(op, ast.Lt): res = res and (left < right)
+            elif isinstance(op, ast.LtE): res = res and (left <= right)
+            elif isinstance(op, ast.Gt): res = res and (left > right)
+            elif isinstance(op, ast.GtE): res = res and (left >= right)
+            else: raise ValueError('bad op')
+            left = right
+        return res
+    if isinstance(node, ast.Name):
+        if node.id not in customer:
+            if in_cond:
+                raise _MissingField()
+            return 0
+        return customer[node.id]
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Num):
+        return node.n
+    if isinstance(node, ast.Str):
+        return node.s
+    if isinstance(node, ast.NameConstant):
+        return node.value
+    raise ValueError('Unsupported node')
+
+def _eval_cond(cond, customer):
+    if not cond:
+        return False
+    try:
+        val = _eval_node(ast.parse(cond, mode='eval').body, customer, True)
+        return bool(val)
+    except _MissingField:
+        return False
+
+def _eval_arith(expr, customer):
+    if isinstance(expr, (int, float)):
+        return expr
+    return _eval_node(ast.parse(expr, mode='eval').body, customer, False)
+
+def evaluate_rules(customer, rules):
+    for rule in rules:
+        if _eval_cond(rule.get('cond', ''), customer):
+            pts = rule['action']['points']
+            val = _eval_arith(pts, customer)
+            return {'points': math.floor(val)}
+    return None

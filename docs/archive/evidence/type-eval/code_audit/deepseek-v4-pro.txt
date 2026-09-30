@@ -1,0 +1,10 @@
+3 中 submit_fee 的 user 参数完全未使用，缺少“律师只能登记自己客户费用”的权限/归属校验；应校验操作人权限并记录审计字段。
+7 高 使用 Python 字符串拼接构造 SQL，note 中单引号等会导致 SQL 语法错误或注入；应改用 `?` 参数化绑定。
+8 中 submit_fee 执行 INSERT 后未 commit，单独调用不会持久化；应与 approve/adjust 一致显式 commit，或明确由调用方提交事务。
+12-15 高 approve_fee 未使用 user 参数，任何调用者可审批/退回任意草稿，存在越权；应校验草稿归属和操作人审批权限。
+21-22 高 未处理 row 为 None，且默认 sqlite3 行对象是 tuple，`row["balance"]` 会 TypeError；应检查 None，并设置 row_factory=sqlite3.Row 或按索引读取。
+23 中 余额使用浮点数计算和比较，存在精度风险；金额应使用整数分或 Decimal 存储计算。
+25 高 `balance == 0.0` 导致余额为 0 时合法正向调整（如充值）被错误跳过；应删除该条件，仅当 delta==0 时跳过。
+27-28 中 先读后写的余额更新存在并发丢失更新；应使用原子条件更新或事务锁，例如 `UPDATE balances SET balance=balance+? WHERE customer_id=? AND balance+?>=0`。
+34 中 导出文件手动 open 未关闭，异常时会泄漏文件句柄；应使用 `with open(out_path, "w", encoding="utf-8", newline="") as f:`。
+45-46 中 批量导入捕获异常后仅 pass，未按注释记录日志，失败不可追踪；应记录错误日志并继续，最后汇总失败条数。

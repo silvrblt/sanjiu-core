@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>经营看板 · 律所经营中后台</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family: "PingFang SC","Microsoft YaHei","Hiragino Sans GB",-apple-system,BlinkMacSystemFont,sans-serif;
+    background:#F4F2EA;
+    color:#101A2B;
+    -webkit-font-smoothing:antialiased;
+    font-variant-numeric: tabular-nums;
+    /* subtle paper dot texture */
+    background-image: radial-gradient(rgba(16,26,43,0.05) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+
+  /* ===== Sidebar ===== */
+  .sidebar{
+    position:relative;
+    background:linear-gradient(160deg,#17253E 0%,#101A2E 55%,#0B1424 100%);
+    color:#D8DEE7;
+    padding:28px 0 24px;
+    overflow:hidden;
+  }
+  .sidebar::before{
+    content:"";position:absolute;top:-80px;right:-80px;width:260px;height:260px;
+    background:radial-gradient(circle,rgba(227,181,74,.16) 0%,rgba(227,181,74,0) 70%);
+    pointer-events:none;
+  }
+  .brand{
+    display:flex;align-items:center;gap:10px;
+    padding:0 24px 28px;
+    border-bottom:1px solid rgba(227,181,74,.12);
+    position:relative;
+  }
+  .brand-mark{
+    width:34px;height:34px;border-radius:6px;
+    background:linear-gradient(135deg,#E3B54A 0%,#A57C22 100%);
+    display:flex;align-items:center;justify-content:center;
+    color:#0B1424;font-weight:700;font-family:Georgia,serif;font-size:18px;
+    box-shadow:0 2px 8px rgba(227,181,74,.25);
+  }
+  .brand-text{font-family:Georgia,"Songti SC","Times New Roman",serif;font-size:16px;color:#E3B54A;letter-spacing:.5px;line-height:1.2}
+  .brand-sub{font-size:10px;color:#7A8493;letter-spacing:2px;margin-top:2px}
+
+  .nav{padding:20px 12px;display:flex;flex-direction:column;gap:4px}
+  .nav-item{
+    display:flex;align-items:center;gap:12px;
+    padding:11px 14px;border-radius:6px;
+    color:#B6BFCB;font-size:14px;
+    cursor:pointer;transition:all .2s;
+    position:relative;
+  }
+  .nav-item:hover{background:rgba(227,181,74,.06);color:#E3B54A}
+  .nav-item.active{
+    background:linear-gradient(90deg,rgba(227,181,74,.14) 0%,rgba(227,181,74,0) 100%);
+    color:#E3B54A;
+  }
+  .nav-item.active::before{
+    content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;
+    background:#E3B54A;border-radius:2px;
+  }
+  .nav-icon{width:16px;height:16px;flex-shrink:0;opacity:.85}
+  .nav-section-title{
+    padding:18px 24px 8px;font-size:11px;color:#5A6472;letter-spacing:2px;
+  }
+
+  .sidebar-footer{
+    position:absolute;bottom:24px;left:24px;right:24px;
+    padding-top:16px;border-top:1px solid rgba(227,181,74,.08);
+    font-size:11px;color:#5A6472;line-height:1.6;
+  }
+  .sidebar-footer strong{color:#E3B54A;font-weight:500}
+
+  /* ===== Main ===== */
+  .main{padding:0 36px 40px;min-width:0}
+  .topbar{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    padding:32px 0 24px;border-bottom:1px solid #E5E0D2;margin-bottom:26px;
+  }
+  .page-title{
+    font-family:Georgia,"Songti SC","Times New Roman",serif;
+    font-size:28px;font-weight:600;color:#101A2B;letter-spacing:1px;
+  }
+  .page-title .en{font-size:13px;color:#8A8F98;letter-spacing:3px;margin-left:10px;font-weight:400}
+  .topbar-right{display:flex;align-items:center;gap:18px}
+  .date-box{text-align:right;font-size:12px;color:#5A6472;line-height:1.6}
+  .date-box .d{font-size:14px;color:#101A2B;font-weight:500}
+  .user-chip{display:flex;align-items:center;gap:10px;padding:6px 12px 6px 6px;border:1px solid #E5E0D2;border-radius:30px;background:#FBFAF6}
+  .avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#17253E,#0B1424);color:#E3B54A;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+  .user-name{font-size:13px;color:#101A2B}
+
+  /* ===== KPI Cards ===== */
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:22px}
+  .kpi{
+    background:#FBFAF6;border:1px solid #E5E0D2;border-radius:8px;
+    padding:20px 22px;box-shadow:0 1px 3px rgba(16,26,43,.06);
+    position:relative;overflow:hidden;
+  }
+  .kpi::after{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#C29933;
+    opacity:.85;
+  }
+  .kpi:nth-child(2)::after{background:#8A8F98}
+  .kpi:nth-child(3)::after{background:#8A8F98}
+  .kpi:nth-child(4)::after{background:#9A3B32}
+  .kpi-label{font-size:12px;color:#5A6472;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+  .kpi-label::before{content:"";width:4px;height:4px;border-radius:50%;background:#C29933}
+  .kpi-value{
+    font-family:Georgia,"Songti SC",serif;
+    font-size:30px;font-weight:600;color:#101A2B;line-height:1.1;
+    font-variant-numeric:tabular-nums;
+    margin-bottom:10px;
+  }
+  .kpi-value .unit{font-size:14px;color:#5A6472;margin-left:2px;font-family:"PingFang SC",sans-serif;font-weight:400}
+  .kpi-value.gold{color:#A57C22}
+  .kpi-foot{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#8A8F98}
+  .delta{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+  .delta.up{color:#A57C22;background:rgba(194,153,51,.10)}
+  .delta.down{color:#9A3B32;background:rgba(154,59,50,.08)}
+
+  /* ===== Charts Row ===== */
+  .charts-row{display:grid;grid-template-columns:1.7fr 1fr;gap:18px;margin-bottom:22px}
+  .panel{background:#FBFAF6;border:1px solid #E5E0D2;border-radius:8px;padding:22px 24px;box-shadow:0 1px 3px rgba(16,26,43,.06)}
+  .panel-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:6px}
+  .panel-title{font-family:Georgia,"Songti SC",serif;font-size:16px;color:#101A2B;font-weight:600;letter-spacing:.5px}
+  .panel-sub{font-size:11px;color:#8A8F98;letter-spacing:1px;margin-top:2px}
+  .legend{display:flex;gap:14px;font-size:11px;color:#5A6472}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+  /* Bar chart */
+  .bar-chart{margin-top:16px;position:relative}
+  .bar-chart svg{width:100%;height:260px;display:block}
+
+  /* Donut */
+  .donut-wrap{display:flex;align-items:center;gap:18px;margin-top:14px}
+  .donut-svg{width:180px;height:180px;flex-shrink:0}
+  .donut-center{font-family:Georgia,serif}
+  .donut-list{flex:1;display:flex;flex-direction:column;gap:10px}
+  .donut-item{display:flex;align-items:center;gap:10px;font-size:12px;color:#101A2B}
+  .donut-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+  .donut-name{flex:1}
+  .donut-val{font-weight:600;font-variant-numeric:tabular-nums;color:#101A2B}
+  .donut-pct{color:#5A6472;min-width:38px;text-align:right;font-variant-numeric:tabular-nums}
+
+  /* ===== Table ===== */
+  .table-panel{padding:0}
+  .table-head{padding:20px 24px 14px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #E5E0D2}
+  .table{width:100%;border-collapse:collapse;font-size:13px}
+  .table th{
+    text-align:left;padding:12px 18px;font-weight:500;color:#5A6472;
+    font-size:12px;letter-spacing:1px;background:#F4F2EA;
+    border-bottom:1px solid #E5E0D2;
+  }
+  .table th.num{text-align:right}
+  .table td{
+    padding:13px 18px;border-bottom:1px solid #EFEAD9;color:#101A2B;
+    font-variant-numeric:tabular-nums;
+  }
+  .table tbody tr:last-child td{border-bottom:none}
+  .table tbody tr:hover{background:rgba(194,153,51,.04)}
+  .table td.num{text-align:right;color:#A57C22;font-weight:500}
+  .case-no{font-family:Georgia,serif;color:#101A2B;letter-spacing:.5px}
+  .case-type{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;background:#F4F2EA;color:#5A6472;border:1px solid #E5E0D2}
+  .status{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:10px}
+  .status::before{content:"";width:6px;height:6px;border-radius:50%}
+  .status.s-progress{color:#A57C22;background:rgba(194,153,51,.10)}
+  .status.s-progress::before{background:#C29933}
+  .status.s-archived{color:#5A6472;background:rgba(90,100,114,.08)}
+  .status.s-archived::before{background:#8A8F98}
+  .status.s-filing{color:#9A3B32;background:rgba(154,59,50,.08)}
+  .status.s-filing::before{background:#9A3B32}
+  .status.s-closed{color:#101A2B;background:rgba(16,26,43,.06)}
+  .status.s-closed::before{background:#101A2B}
+  .lawyer{color:#5A6472;font-size:12px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">律</div>
+      <div>
+        <div class="brand-text">律所经营中后台</div>
+        <div class="brand-sub">MANAGEMENT CONSOLE</div>
+      </div>
+    </div>
+
+    <div class="nav-section-title">主导航 · NAVIGATION</div>
+    <nav class="nav">
+      <div class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
+        经营看板
+      </div>
+      <div class="nav-item active">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12l4 4v12H4z"/><path d="M16 4v4h4M8 13h8M8 17h5"/></svg>
+        案件管理
+      </div>
+      <div class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11h4M17 15h4M17 19h4"/></svg>
+        客户管理
+      </div>
+      <div class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-7h6v7"/></svg>
+        财务管理
+      </div>
+      <div class="nav-item">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        系统设置
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div><strong>金诚律师事务所</strong></div>
+      <div>v 2.4.1 · 内部使用</div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div>
+        <div class="page-title">经营看板<span class="en">BUSINESS DASHBOARD</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="date-box">
+          <div>当前周期</div>
+          <div class="d">2024 年 12 月 18 日 · 周三</div>
+        </div>
+        <div class="user-chip">
+          <div class="avatar">陈</div>
+          <div class="user-name">陈律师 · 主任</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Row -->
+    <section class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">本季创收 · Q4 REVENUE</div>
+        <div class="kpi-value gold">¥1,286,400</div>
+        <div class="kpi-foot">
+          <span>较上季</span>
+          <span class="delta up">▲ 12.6%</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">在办案件 · ACTIVE CASES</div>
+        <div class="kpi-value">186<span class="unit">件</span></div>
+        <div class="kpi-foot">
+          <span>本月新增 24</span>
+          <span class="delta up">▲ 5.2%</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">客户总数 · TOTAL CLIENTS</div>
+        <div class="kpi-value">2,340</div>
+        <div class="kpi-foot">
+          <span>本月新增 38</span>
+          <span class="delta up">▲ 1.6%</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">回款率 · COLLECTION RATE</div>
+        <div class="kpi-value">87.3<span class="unit">%</span></div>
+        <div class="kpi-foot">
+          <span>较上月</span>
+          <span class="delta up">▲ 3.1%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Charts Row -->
+    <section class="charts-row">
+
+      <!-- Bar chart -->
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">近 12 个月创收趋势</div>
+            <div class="panel-sub">MONTHLY REVENUE · 单位：万元</div>
+          </div>
+          <div class="legend">
+            <span><i style="background:#101A2B"></i>创收额</span>
+            <span><i style="background:#C29933"></i>环比</span>
+          </div>
+        </div>
+        <div class="bar-chart">
+          <svg viewBox="0 0 720 260" preserveAspectRatio="none">
+            <!-- y-axis grid lines & labels -->
+            <g font-family="Georgia, serif" font-size="10" fill="#8A8F98">
+              <line x1="40" y1="30"  x2="700" y2="30"  stroke="#E5E0D2" stroke-dasharray="2,3"/>
+              <text x="34" y="34" text-anchor="end">180</text>
+              <line x1="40" y1="80"  x2="700" y2="80"  stroke="#E5E0D2" stroke-dasharray="2,3"/>
+              <text x="34" y="84" text-anchor="end">135</text>
+              <line x1="40" y1="130" x2="700" y2="130" stroke="#E5E0D2" stroke-dasharray="2,3"/>
+              <text x="34" y="134" text-anchor="end">90</text>
+              <line x1="40" y1="180" x2="700" y2="180" stroke="#E5E0D2" stroke-dasharray="2,3"/>
+              <text x="34" y="184" text-anchor="end">45</text>
+              <line x1="40" y1="220" x2="700" y2="220" stroke="#101A2B" stroke-width="1"/>
+              <text x="34" y="224" text-anchor="end">0</text>
+            </g>
+
+            <!-- Bars (12 months) values: 82,78,95,88,102,118,125,108,132,145,152,161 (scaled: max ~180) -->
+            <!-- chart area: x 50..690 (width 640), y 30..220 (height 190), bar width 36, gap ~17 -->
+            <g>
+              <!-- 1月 82 -> h = 82/180*190 = 86.5 -->
+              <rect x="56"  y="133.5" width="36" height="86.5" fill="#101A2B"/>
+              <text x="74"  y="127" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">82</text>
+              <!-- 2月 78 -> 82.3 -->
+              <rect x="108" y="137.7" width="36" height="82.3" fill="#101A2B"/>
+              <text x="126" y="131" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">78</text>
+              <!-- 3月 95 -> 100.3 -->
+              <rect x="160" y="119.7" width="36" height="100.3" fill="#101A2B"/>
+              <text x="178" y="113" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">95</text>
+              <!-- 4月 88 -> 92.9 -->
+              <rect x="212" y="127.1" width="36" height="92.9" fill="#101A2B"/>
+              <text x="230" y="120" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">88</text>
+              <!-- 5月 102 -> 107.7 -->
+              <rect x="264" y="112.3" width="36" height="107.7" fill="#101A2B"/>
+              <text x="282" y="106" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">102</text>
+              <!-- 6月 118 -> 124.6 -->
+              <rect x="316" y="95.4" width="36" height="124.6" fill="#101A2B"/>
+              <text x="334" y="89" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">118</text>
+              <!-- 7月 125 -> 131.9 -->
+              <rect x="368" y="88.1" width="36" height="131.9" fill="#101A2B"/>
+              <text x="386" y="81" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">125</text>
+              <!-- 8月 108 -> 114 -->
+              <rect x="420" y="106" width="36" height="114" fill="#101A2B"/>
+              <text x="438" y="100" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">108</text>
+              <!-- 9月 132 -> 139.3 -->
+              <rect x="472" y="80.7" width="36" height="139.3" fill="#101A2B"/>
+              <text x="490" y="74" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">132</text>
+              <!-- 10月 145 -> 153.1 -->
+              <rect x="524" y="66.9" width="36" height="153.1" fill="#101A2B"/>
+              <text x="542" y="60" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">145</text>
+              <!-- 11月 152 -> 160.4 -->
+              <rect x="576" y="59.6" width="36" height="160.4" fill="#101A2B"/>
+              <text x="594" y="52" font-family="PingFang SC" font-size="9" fill="#5A6472" text-anchor="middle">152</text>
+              <!-- 12月 161 -> 169.9 - highlight in gold -->
+              <rect x="628" y="50.1" width="36" height="169.9" fill="#C29933"/>
+              <text x="646" y="44" font-family="PingFang SC" font-size="9" fill="#A57C22" text-anchor="middle" font-weight="600">161</text>
+            </g>
+
+            <!-- x-axis labels -->
+            <g font-family="PingFang SC" font-size="10" fill="#5A6472" text-anchor="middle">
+              <text x="74"  y="238">1月</text>
+              <text x="126" y="238">2月</text>
+              <text x="178" y="238">3月</text>
+              <text x="230" y="238">4月</text>
+              <text x="282" y="238">5月</text>
+              <text x="334" y="238">6月</text>
+              <text x="386" y="238">7月</text>
+              <text x="438" y="238">8月</text>
+              <text x="490" y="238">9月</text>
+              <text x="542" y="238">10月</text>
+              <text x="594" y="238">11月</text>
+              <text x="646" y="238">12月</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Donut chart -->
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">案件状态分布</div>
+            <div class="panel-sub">CASE STATUS · 共 186 件</div>
+          </div>
+        </div>
+        <div class="donut-wrap">
+          <svg class="donut-svg" viewBox="0 0 100 100">
+            <!-- background ring -->
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#F4F2EA" stroke-width="16"/>
+            <!-- segments:
+                 进行中 98/186 = 52.69%
+                 已归档 32/186 = 17.20%
+                 待立案 24/186 = 12.90%
+                 已结案 32/186 = 17.20%
+                 circumf = 2πr = 238.76
+            -->
+            <!-- 进行中 52.69% -> length 125.80, starts at 0 -->
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#101A2B" stroke-width="16"
+                    stroke-dasharray="125.80 238.76" stroke-dashoffset="0"
+                    transform="rotate(-90 50 50)"/>
+            <!-- 已归档 17.20% -> length 41.07, starts at 125.80 -->
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#C29933" stroke-width="16"
+                    stroke-dasharray="41.07 238.76" stroke-dashoffset="-125.80"
+                    transform="rotate(-90 50 50)"/>
+            <!-- 待立案 12.90% -> length 30.80, starts at 166.87 -->
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#9A3B32" stroke-width="16"
+                    stroke-dasharray="30.80 238.76" stroke-dashoffset="-166.87"
+                    transform="rotate(-90 50 50)"/>
+            <!-- 已结案 17.20% -> length 41.07, starts at 197.67 -->
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#8A8F98" stroke-width="16"
+                    stroke-dasharray="41.07 238.76" stroke-dashoffset="-197.67"
+                    transform="rotate(-90 50 50)"/>
+            <!-- center label -->
+            <text x="50" y="48" text-anchor="middle" font-family="Georgia,serif" font-size="8" fill="#5A6472">TOTAL</text>
+            <text x="50" y="60" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#101A2B" font-weight="600">186</text>
+          </svg>
+
+          <div class="donut-list">
+            <div class="donut-item">
+              <span class="donut-dot" style="background:#101A2B"></span>
+              <span class="donut-name">进行中</span>
+              <span class="donut-val">98</span>
+              <span class="donut-pct">52.7%</span>
+            </div>
+            <div class="donut-item">
+              <span class="donut-dot" style="background:#C29933"></span>
+              <span class="donut-name">已归档</span>
+              <span class="donut-val">32</span>
+              <span class="donut-pct">17.2%</span>
+            </div>
+            <div class="donut-item">
+              <span class="donut-dot" style="background:#9A3B32"></span>
+              <span class="donut-name">待立案</span>
+              <span class="donut-val">24</span>
+              <span class="donut-pct">12.9%</span>
+            </div>
+            <div class="donut-item">
+              <span class="donut-dot" style="background:#8A8F98"></span>
+              <span class="donut-name">已结案</span>
+              <span class="donut-val">32</span>
+              <span class="donut-pct">17.2%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent Cases Table -->
+    <section class="panel table-panel">
+      <div class="table-head">
+        <div>
+          <div class="panel-title">最近案件</div>
+          <div class="panel-sub">RECENT CASES · 最近 30 日更新</div>
+        </div>
+        <div class="legend">
+          <span><i style="background:#C29933;border-radius:50%"></i>实时同步</span>
+        </div>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>案号</th>
+            <th>客户</th>
+            <th>案件类型</th>
+            <th>承办律师</th>
+            <th class="num">标的额（元）</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="case-no">(2024) 沪 0115 民初 4821</span></td>
+            <td>鼎峰贸易有限公司</td>
+            <td><span class="case-type">合同纠纷</span></td>
+            <td class="lawyer">陈志远 · 王慕言</td>
+            <td class="num">12,800,000</td>
+            <td><span class="status s-progress">进行中</span></td>
+          </tr>
+          <tr>
+            <td><span class="case-no">(2024) 沪 02 民终 1567</span></td>
+            <td>陆文骐</td>
+            <td><span class="case-type">婚姻家事</span></td>
+            <td class="lawyer">林舒涵</td>
+            <td class="num">8,650,000</td>
+            <td><span class="status s-closed">已结案</span></td>
+          </tr>
+          <tr>
+            <td><span class="case-no">(2024) 沪 0115 刑初 0923</span></td>
+            <td>嘉实建设集团</td>
+            <td><span class="case-type">商事诉讼</span></td>
+            <td class="lawyer">赵梓睿 · 苏明远</td>
+            <td class="num">26,400,000</td>
+            <td><span class="status s-progress">进行中</span></td>
+          </tr>
+          <tr>
+            <td><span class="case-no">(2024) 沪 0109 民初 3344</span></td>
+            <td>晨曦生物科技</td>
+            <td><span class="case-type">知识产权</span></td>
+            <td class="lawyer">徐怀瑾</td>
+            <td class="num">5,200,000</td>
+            <td><span class="status s-filing">待立案</span></td>
+          </tr>
+          <tr>
+            <td><span class="case-no">(2024) 沪 03 民初 2208</span></td>
+            <td>周氏家族信托</td>
+            <td><span class="case-type">财富传承</span></td>
+            <td class="lawyer">陈志远 · 林舒涵</td>
+            <td class="num">45,000,000</td>
+            <td><span class="status s-progress">进行中</span></td>
+          </tr>
+          <tr>
+            <td><span class="case-no">(2024) 沪 0115 民初 4107</span></td>
+            <td>瀚海物流股份</td>
+            <td><span class="case-type">劳动争议</span></td>
+            <td class="lawyer">苏明远</td>
+            <td class="num">1,860,000</td>
+            <td><span class="status s-archived">已归档</span></td>
+          </tr>
+          <tr>
+            <td><span class="case-no">(2024) 沪 02 行初 0455</span></td>
+            <td>瑞辰医疗器械</td>
+            <td><span class="case-type">行政诉讼</span></td>
+            <td class="lawyer">赵梓睿 · 徐怀瑾</td>
+            <td class="num">7,350,000</td>
+            <td><span class="status s-progress">进行中</span></td>
+          </tr>
+          <tr>
+            <td><span class="case-no">(2024) 沪 0115 民初 3998</span></td>
+            <td>沈翊鸣</td>
+            <td><span class="case-type">刑事辩护</span></td>
+            <td class="lawyer">王慕言</td>
+            <td class="num">—</td>
+            <td><span class="status s-filing">待立案</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // 极简：仅为标题区动态更新当前日期
+  (function(){
+    var d=new Date();
+    var wk=['日','一','二','三','四','五','六'][d.getDay()];
+    var el=document.querySelector('.date-box .d');
+    if(el) el.textContent=d.getFullYear()+' 年 '+(d.getMonth()+1)+' 月 '+d.getDate()+' 日 · 周'+wk;
+  })();
+</script>
+</body>
+</html>

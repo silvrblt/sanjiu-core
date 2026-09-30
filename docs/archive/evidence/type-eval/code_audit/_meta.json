@@ -1,0 +1,74 @@
+{
+ "task": "code_audit",
+ "date": "2026-09-04",
+ "round": "第二批",
+ "models": [
+  "deepseek-v4-flash",
+  "deepseek-v4-pro",
+  "hy3",
+  "minimax-m3",
+  "doubao-seed-2-1-turbo-260628",
+  "kimi-k2.7-code",
+  "glm-5.3",
+  "qwen3.8-max"
+ ],
+ "prompt_file": "prompt.txt",
+ "results": [
+  {
+   "model": "deepseek-v4-flash",
+   "seconds": 91,
+   "in_tokens": 718,
+   "out_tokens": 11472,
+   "reasoning_tokens": 11267
+  },
+  {
+   "model": "deepseek-v4-pro",
+   "seconds": 141,
+   "in_tokens": 718,
+   "out_tokens": 8725,
+   "reasoning_tokens": 8314
+  },
+  {
+   "model": "hy3",
+   "seconds": 176,
+   "in_tokens": 614,
+   "out_tokens": 15126,
+   "reasoning_tokens": 14666
+  },
+  {
+   "model": "minimax-m3",
+   "seconds": 36,
+   "in_tokens": 779,
+   "out_tokens": 5017,
+   "reasoning_tokens": 4681
+  },
+  {
+   "model": "doubao-seed-2-1-turbo-260628",
+   "seconds": 211,
+   "in_tokens": 707,
+   "out_tokens": 14921,
+   "reasoning_tokens": 14572
+  },
+  {
+   "model": "kimi-k2.7-code",
+   "seconds": 269,
+   "in_tokens": 607,
+   "out_tokens": 14533,
+   "reasoning_tokens": 14310
+  },
+  {
+   "model": "glm-5.3",
+   "seconds": 304,
+   "in_tokens": 614,
+   "out_tokens": 17228,
+   "reasoning_tokens": 16481
+  },
+  {
+   "model": "qwen3.8-max",
+   "seconds": 308,
+   "in_tokens": 702,
+   "out_tokens": 11155,
+   "reasoning_tokens": 10950
+  }
+ ]
+}

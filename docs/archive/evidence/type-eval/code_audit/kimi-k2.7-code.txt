@@ -1,0 +1,5 @@
+7 高 submit_fee 使用字符串格式化拼接 SQL（note 还被手动套引号），存在 SQL 注入；应改为参数化查询（? 占位符）。
+3、10 高 submit_fee 与 approve_fee 接收 user 参数但未校验律师对客户/草稿的归属或审批权限，存在越权风险；执行前应验证 user 权限。
+21-29 高 adjust_balance 先 SELECT 再 UPDATE 属于非原子读-改-写，并发下可能透支，且未处理 customer_id 不存在的情况；应使用单条原子 UPDATE balances SET balance=balance+? WHERE customer_id=? AND balance+?>=0 并通过 rowcount 判断。
+36 中 export_fees 打开文件后未关闭，异常时可能泄漏句柄；应使用 with open(out_path, "w", encoding="utf-8") as f:。
+47-48 中 batch_import 使用裸 except Exception 并静默吞掉所有错误，与“记录日志后继续”不符；应改为记录日志（logging）后再 continue。

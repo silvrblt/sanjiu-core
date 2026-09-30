@@ -1,0 +1,15 @@
+{
+ "task": "text_understand",
+ "date": "2026-09-04",
+ "round": "候选抽测",
+ "prompt_file": "prompt.txt",
+ "results": [
+  {
+   "model": "MiniMax-M2.1",
+   "seconds": 5,
+   "in_tokens": 372,
+   "out_tokens": 358,
+   "reasoning_tokens": 0
+  }
+ ]
+}

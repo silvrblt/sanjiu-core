@@ -1,0 +1,19 @@
+```python
+def parse_config(text):
+    result = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            continue
+        key, sep, value = line.partition('=')
+        if not sep:
+            continue
+        key = key.strip()
+        if not key:
+            continue
+        val = value.strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+            val = val[1:-1]
+        result[key] = val
+    return result
+```

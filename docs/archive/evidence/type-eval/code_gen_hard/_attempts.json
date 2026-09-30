@@ -1,0 +1,11 @@
+{
+  "task": "code_gen_hard",
+  "note": "重推理模型尝试链实录（每次调用 max_tokens 依次 8000→16000→32000→40000；空输出=reasoning 吃满后 content 仍空）",
+  "attempts": {
+    "deepseek-v4-flash": {"chain": [8000, 16000, 32000, 40000], "final": "内容截断", "evidence": "40k 档 reasoning=39740 content≈260 token（语法不完整，9 断言 0 通过）", "cost_tokens_out": 96000},
+    "deepseek-v4-pro": {"chain": [8000, 16000, 32000, 40000], "final": "空输出", "evidence": "四档 reasoning 全部吃满（末档 39999/40000），content 恒空，96k 输出 token 无正文", "cost_tokens_out": 96000},
+    "glm-5.3": {"chain": [8000, 16000, 32000, 40000], "final": "空输出", "evidence": "32k 档 600s 读超时；40k 档 reasoning=39939 content 空", "cost_tokens_out": 79000},
+    "qwen3.8-max": {"chain": [8000, 16000, 32000, 40000], "final": "超时", "evidence": "40k 档 900s SLA 内未完成（读超时），无产出文件", "cost_tokens_out": null}
+  },
+  "verdict": "DS-flash/DS-pro/glm-5.3/qwen3.8-max 在复杂代码生成上思考无界，单次调用预算内无法交付 → code_gen(高难度) 不达标；doubao/hy3/kimi-k2.7-code/minimax-m3 均 9/9 断言通过。对比：简单题 parse_config 8 模型全 4/4（第一批）——区分度即难度函数。"
+}

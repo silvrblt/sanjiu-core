@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>经营看板 · 律所经营中后台</title>
+<style>
+  :root{
+    --paper:#f4f1ea;      /* 纸感底色 */
+    --card:#ffffff;
+    --line:#e5dfd0;
+    --ink:#23281f;
+    --muted:#83806f;
+    --green:#1e4d3d;      /* 主墨绿 */
+    --green-deep:#0d211b; /* 侧栏深绿 */
+    --brass:#a8874f;      /* 铜金强调色 */
+    --brass-light:#c8a86b;
+    --serif:Georgia,"Times New Roman","Songti SC","STSong","SimSun",serif;
+    --sans:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font:14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+  .app{display:flex;min-height:100vh}
+
+  /* ============ 侧栏 ============ */
+  .sidebar{width:236px;flex:none;background:var(--green-deep);color:#e9e4d4;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .brand{display:flex;gap:12px;align-items:center;padding:22px 20px 20px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .brand-mark{width:42px;height:42px;flex:none;border:1px solid rgba(200,168,107,.55);border-radius:9px;display:grid;place-items:center;color:var(--brass-light)}
+  .brand-name{font-family:var(--serif);font-size:15px;font-weight:700;letter-spacing:1.5px;color:#f0ebdb}
+  .brand-sub{font-size:9px;letter-spacing:3px;color:rgba(233,228,214,.38);margin-top:4px}
+  nav{padding:14px 12px 10px;flex:1;overflow-y:auto}
+  .nav-cap{font-size:10.5px;letter-spacing:3px;color:rgba(233,228,214,.35);padding:8px 12px 8px}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:8px;color:rgba(233,228,214,.72);text-decoration:none;margin-bottom:3px;position:relative;transition:background .18s,color .18s;font-size:13.5px}
+  .nav-item svg{flex:none;opacity:.8}
+  .nav-item:hover{background:rgba(255,255,255,.05);color:#fff}
+  .nav-item.active{background:rgba(200,168,107,.14);color:#fff}
+  .nav-item.active::before{content:"";position:absolute;left:0;top:26%;height:48%;width:3px;border-radius:3px;background:var(--brass-light)}
+  .side-user{padding:16px 18px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:11px}
+  .avatar{width:36px;height:36px;border-radius:50%;background:rgba(200,168,107,.15);border:1px solid rgba(200,168,107,.5);display:grid;place-items:center;font-family:var(--serif);color:var(--brass-light);font-size:15px}
+  .side-user .nm{font-size:13.5px;color:#f0ebdb}
+  .side-user .rl{font-size:11px;color:rgba(233,228,214,.45)}
+
+  /* ============ 主区 ============ */
+  main{flex:1;min-width:0;padding:28px 32px 44px}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  h1{font-family:var(--serif);font-size:24px;font-weight:700;letter-spacing:1.5px}
+  .sub{font-size:12.5px;color:var(--muted);margin-top:5px;letter-spacing:.5px}
+  .topbar-right{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .date-chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 15px;font-size:13px;color:#57544a}
+  .date-chip svg{color:var(--brass)}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:9px;border:1px solid var(--green);color:var(--green);background:transparent;font-size:13px;cursor:pointer;transition:.2s;font-family:inherit}
+  .btn:hover{background:var(--green);color:#f2eddd}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  /* ============ KPI ============ */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:18px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:19px 21px;position:relative;animation:fadeUp .55s both}
+  .kpi:nth-child(1){animation-delay:.06s}.kpi:nth-child(2){animation-delay:.13s}
+  .kpi:nth-child(3){animation-delay:.20s}.kpi:nth-child(4){animation-delay:.27s}
+  .kpi-label{font-size:12.5px;color:var(--muted);letter-spacing:2px}
+  .kpi-ico{position:absolute;top:18px;right:18px;color:#c7c2af}
+  .kpi-value{font-family:var(--serif);font-size:30px;font-weight:600;margin:10px 0 8px;letter-spacing:.5px}
+  .kpi-value .yen{font-size:17px;margin-right:3px;vertical-align:4px;opacity:.75}
+  .kpi-value .unit{font-size:14px;margin-left:5px;color:var(--muted);font-family:var(--sans);font-weight:400}
+  .kpi-foot{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .delta{color:#2e7d5b;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+  .kpi-primary{background:var(--green);border-color:var(--green);color:#f2eddd}
+  .kpi-primary .kpi-label{color:rgba(242,237,221,.65)}
+  .kpi-primary .kpi-ico{color:rgba(242,237,221,.5)}
+  .kpi-primary .kpi-value .unit,.kpi-primary .kpi-foot{color:rgba(242,237,221,.6)}
+  .kpi-primary .delta{color:#e3c98e}
+  .spark{width:100%;height:30px;margin-top:14px;display:block}
+  .meter{height:4px;background:rgba(30,92,71,.13);border-radius:99px;margin-top:13px;overflow:hidden}
+  .meter i{display:block;height:100%;background:var(--brass);border-radius:99px;transform-origin:left;animation:growBar 1.2s .45s cubic-bezier(.25,.8,.35,1) both}
+  @keyframes growBar{from{transform:scaleX(0)}}
+
+  /* ============ 图表 ============ */
+  .charts{display:grid;grid-template-columns:1.85fr 1fr;gap:16px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:20px 22px}
+  .charts .card:nth-child(1){animation:fadeUp .55s .34s both}
+  .charts .card:nth-child(2){animation:fadeUp .55s .42s both}
+  .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .card-title{font-family:var(--serif);font-size:16.5px;font-weight:700;letter-spacing:1px}
+  .card-sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .legend-line{font-size:11.5px;color:var(--muted);display:flex;gap:7px;align-items:center;padding-top:4px}
+  .dash-sample{width:20px;border-top:2px dashed var(--brass);opacity:.85}
+  .chart-body{position:relative}
+  #barChart{width:100%;height:auto;display:block}
+  .bar{fill:#245040;cursor:pointer;transform:scaleY(0);transform-box:fill-box;transform-origin:center bottom}
+  .bar.on{transform:scaleY(1)}
+  .bar:hover{fill:var(--brass)}
+  .chart-tip{position:absolute;transform:translate(-50%,-100%);background:var(--green-deep);color:#efe9d8;padding:7px 13px;border-radius:8px;font-size:12px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 8px 22px rgba(13,33,27,.3)}
+  .chart-tip b{color:var(--brass-light);margin-right:6px;font-family:var(--serif)}
+  .chart-tip.show{opacity:1}
+
+  .donut-flex{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center}
+  #donut{width:186px;flex:none}
+  #arcs circle{transition:stroke-dasharray .95s cubic-bezier(.25,.8,.35,1),opacity .25s,stroke-width .2s;cursor:pointer}
+  .dc-num{font-family:var(--serif);font-size:28px;font-weight:700;fill:var(--ink);text-anchor:middle}
+  .dc-cap{font-size:11px;fill:var(--muted);text-anchor:middle;letter-spacing:2.5px}
+  .seg-list{flex:1;min-width:180px}
+  .seg{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;cursor:default;transition:background .15s}
+  .seg:hover{background:#f6f3ea}
+  .seg-dot{width:9px;height:9px;border-radius:3px;flex:none}
+  .seg-name{font-size:13.5px}
+  .seg-val{margin-left:auto;font-family:var(--serif);font-size:15px;font-weight:600}
+  .seg-pct{font-size:11.5px;color:var(--muted);width:42px;text-align:right}
+
+  /* ============ 表格 ============ */
+  .table-card{padding:0 0 6px;overflow:hidden;animation:fadeUp .55s .5s both}
+  .table-card .card-head{padding:20px 22px 12px;margin-bottom:0}
+  .link-more{color:var(--green);font-size:12.5px;text-decoration:none;border-bottom:1px solid rgba(30,77,61,.35);padding-bottom:2px;transition:.18s}
+  .link-more:hover{color:var(--brass);border-color:var(--brass)}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:860px}
+  thead th{text-align:left;font-size:11px;letter-spacing:2px;color:var(--muted);font-weight:600;padding:11px 16px;border-bottom:1px solid var(--line);background:#faf8f1;white-space:nowrap}
+  tbody td{padding:11.5px 16px;border-bottom:1px solid #efece1;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr{transition:background .15s}
+  tbody tr:hover{background:#f8f5ec}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  th.num{text-align:right}
+  td.num{font-family:var(--serif);font-size:14px}
+  .case-no{font-variant-numeric:tabular-nums;color:#4c493f;letter-spacing:.3px}
+  .lawyer{white-space:nowrap}
+  .mini-ava{width:25px;height:25px;border-radius:50%;background:rgba(30,92,71,.09);color:#1e5c47;font-family:var(--serif);font-size:12px;display:inline-flex;align-items:center;justify-content:center;margin-right:9px;border:1px solid rgba(30,92,71,.16);vertical-align:-7px}
+  .badge{display:inline-flex;align-items:center;gap:7px;padding:3px 11px;border-radius:99px;font-size:12px}
+  .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .b-doing{color:#1e5c47;background:rgba(30,92,71,.09)}
+  .b-wait{color:#a8681c;background:rgba(201,146,69,.14)}
+  .b-done{color:#527968;background:rgba(107,143,127,.14)}
+  .b-arch{color:#7d7a6a;background:rgba(185,181,166,.2)}
+
+  /* ============ Toast ============ */
+  .toast{position:fixed;left:50%;bottom:34px;transform:translate(-50%,16px);background:var(--green-deep);color:#efe9d8;padding:11px 22px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.35s;box-shadow:0 12px 32px rgba(13,33,27,.38);display:flex;gap:10px;align-items:center;z-index:99}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:1120px){
+    .charts{grid-template-columns:1fr}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:720px){
+    .kpis{grid-template-columns:1fr}
+    .sidebar{width:200px}
+    main{padding:22px 18px 36px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== 左侧导航 ===== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <!-- 天平徽标 -->
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.6v16.9M8 20.5h8"/><path d="M4.2 6.4h15.6"/><circle cx="12" cy="3.4" r="1.1"/>
+          <path d="M6.4 6.4L3.8 12.3h5.3z"/><path d="M3.2 12.3a3.2 3.2 0 0 0 6.4 0"/>
+          <path d="M17.6 6.4l-2.6 5.9h5.3z"/><path d="M14.4 12.3a3.2 3.2 0 0 0 6.4 0"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">律所经营中后台</div>
+        <div class="brand-sub">LAW FIRM OPS</div>
+      </div>
+    </div>
+    <nav>
+      <div class="nav-cap">主导航</div>
+      <a class="nav-item active" href="#">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="9.5" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5.5" rx="1.5"/><rect x="3.5" y="15.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/></svg>
+        <span>经营看板</span>
+      </a>
+      <a class="nav-item" href="#">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7a2 2 0 0 1 2-2h4.2l2 2.6H18.5a2 2 0 0 1 2 2v8.4a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>
+        <span>案件管理</span>
+      </a>
+      <a class="nav-item" href="#">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="9" cy="8.3" r="3.4"/><path d="M3 19.5c.8-3.6 3.4-5.3 6-5.3s5.2 1.7 6 5.3"/><path d="M15.6 5.6a3.4 3.4 0 0 1 0 5.4M17.6 14.6c2 .9 3.2 2.4 3.5 4.6"/></svg>
+        <span>客户管理</span>
+      </a>
+      <a class="nav-item" href="#">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.6"/><path d="M8.6 7.6l3.4 4 3.4-4M12 11.6V17M9.3 13h5.4M9.3 15.2h5.4"/></svg>
+        <span>财务管理</span>
+      </a>
+      <a class="nav-item" href="#">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="3.1"/><circle cx="12" cy="12" r="7.6"/><path d="M12 2v2.6M12 19.4V22M2 12h2.6M19.4 12H22M4.9 4.9l1.9 1.9M17.2 17.2l1.9 1.9M19.1 4.9l-1.9 1.9M6.8 17.2l-1.9 1.9"/></svg>
+        <span>系统设置</span>
+      </a>
+    </nav>
+    <div class="side-user">
+      <div class="avatar">聿</div>
+      <div>
+        <div class="nm">沈聿白</div>
+        <div class="rl">管理合伙人</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== 主区 ===== -->
+  <main>
+    <header class="topbar">
+      <div>
+        <h1>经营看板</h1>
+        <p class="sub">全所案件、客户与财务经营概览 · 数据每日 06:00 更新</p>
+      </div>
+      <div class="topbar-right">
+        <div class="date-chip">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>
+          <span id="today">—</span>
+        </div>
+        <button class="btn" id="exportBtn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10M7.5 10.5L12 15l4.5-4.5M5 19h14"/></svg>
+          导出月报
+        </button>
+      </div>
+    </header>
+
+    <!-- KPI 指标卡 -->
+    <section class="kpis">
+      <article class="kpi kpi-primary">
+        <div class="kpi-label">本季创收</div>
+        <svg class="kpi-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 7-8"/><path d="M14 7h6v6"/></svg>
+        <div class="kpi-value"><span class="yen">¥</span><span id="kpi1">0</span></div>
+        <div class="kpi-foot">
+          <span class="delta"><svg viewBox="0 0 10 8" width="9" height="8"><path d="M5 0l5 8H0z" fill="currentColor"/></svg>12.6%</span>
+          <span>环比上季度</span>
+        </div>
+        <svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none">
+          <polyline points="0,21.1 9.1,25.1 18.2,16 27.3,18.6 36.4,12.2 45.5,15.3 54.5,17.3 63.6,9.4 72.7,5.4 81.8,8.5 90.9,4.8 100,9.5" fill="none" stroke="#d9bf8b" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" opacity=".9"/>
+        </svg>
+      </article>
+
+      <article class="kpi">
+        <div class="kpi-label">在办案件</div>
+        <svg class="kpi-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3.5 7a2 2 0 0 1 2-2h4.2l2 2.6H18.5a2 2 0 0 1 2 2v8.4a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>
+        <div class="kpi-value"><span id="kpi2">0</span><span class="unit">件</span></div>
+        <div class="kpi-foot">
+          <span class="delta"><svg viewBox="0 0 10 8" width="9" height="8"><path d="M5 0l5 8H0z" fill="currentColor"/></svg>9 件</span>
+          <span>本月新收 23 · 结案 14</span>
+        </div>
+      </article>
+
+      <article class="kpi">
+        <div class="kpi-label">客户总数</div>
+        <svg class="kpi-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="9" cy="8.3" r="3.4"/><path d="M3 19.5c.8-3.6 3.4-5.3 6-5.3s5.2 1.7 6 5.3"/><path d="M15.6 5.6a3.4 3.4 0 0 1 0 5.4M17.6 14.6c2 .9 3.2 2.4 3.5 4.6"/></svg>
+        <div class="kpi-value"><span id="kpi3">0</span><span class="unit">家</span></div>
+        <div class="kpi-foot">
+          <span class="delta"><svg viewBox="0 0 10 8" width="9" height="8"><path d="M5 0l5 8H0z" fill="currentColor"/></svg>46 家</span>
+          <span>本月新增</span>
+        </div>
+      </article>
+
+      <article class="kpi">
+        <div class="kpi-label">回款率</div>
+        <svg class="kpi-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.6l2.6 2.6 4.8-5.4"/></svg>
+        <div class="kpi-value"><span id="kpi4">0</span><span class="unit">%</span></div>
+        <div class="kpi-foot">
+          <span class="delta"><svg viewBox="0 0 10 8" width="9" height="8"><path d="M5 0l5 8H0z" fill="currentColor"/></svg>3.1%</span>
+          <span>环比上季度</span>
+        </div>
+        <div class="meter"><i style="width:87.3%"></i></div>
+      </article>
+    </section>
+
+    <!-- 图表区 -->
+    <section class="charts">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">近 12 个月创收趋势</div>
+            <div class="card-sub">2025 年 1 月 — 12 月 · 单位：万元</div>
+          </div>
+          <div class="legend-line"><span class="dash-sample"></span>月度目标 ¥380,000</div>
+        </div>
+        <div class="chart-body" id="chartBody">
+          <svg id="barChart" viewBox="0 0 760 300" aria-label="近12个月创收柱状图"></svg>
+          <div class="chart-tip" id="chartTip"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">案件状态分布</div>
+            <div class="card-sub">在办案件合计 186 件</div>
+          </div>
+          <div class="legend-line">数据截至今日</div>
+        </div>
+        <div class="donut-flex">
+          <svg id="donut" viewBox="0 0 160 160" aria-label="案件状态环形图">
+            <g id="arcs" transform="rotate(-90 80 80)"></g>
+            <text class="dc-num" x="80" y="80">186</text>
+            <text class="dc-cap" x="80" y="99">在办案件</text>
+          </svg>
+          <div class="seg-list">
+            <div class="seg"><span class="seg-dot" style="background:#1e5c47"></span><span class="seg-name">进行中</span><span class="seg-val">96</span><span class="seg-pct">51.6%</span></div>
+            <div class="seg"><span class="seg-dot" style="background:#c99245"></span><span class="seg-name">待立案</span><span class="seg-val">10</span><span class="seg-pct">5.4%</span></div>
+            <div class="seg"><span class="seg-dot" style="background:#6b8f7f"></span><span class="seg-name">已结案</span><span class="seg-val">38</span><span class="seg-pct">20.4%</span></div>
+            <div class="seg"><span class="seg-dot" style="background:#b3af9f"></span><span class="seg-name">已归档</span><span class="seg-val">42</span><span class="seg-pct">22.6%</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 最近案件 -->
+    <section class="card table-card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">最近案件</div>
+          <div class="card-sub">最新立案与状态变动的 8 条案件</div>
+        </div>
+        <a class="link-more" href="#" id="moreCases">查看全部案件 →</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>案号</th><th>客户</th><th>案件类型</th><th>承办律师</th><th class="num">标的额</th><th>状态</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="case-no">(2025)沪盈商初字第 0187 号</td><td>上海恒坤实业集团</td><td>股权转让纠纷</td><td class="lawyer"><span class="mini-ava">陈</span>陈砚秋</td><td class="num">¥3,200,000</td><td><span class="badge b-doing">进行中</span></td></tr>
+            <tr><td class="case-no">(2025)沪盈知初字第 0092 号</td><td>杭州云启科技</td><td>侵害商业秘密纠纷</td><td class="lawyer"><span class="mini-ava">沈</span>沈聿白</td><td class="num">¥1,850,000</td><td><span class="badge b-doing">进行中</span></td></tr>
+            <tr><td class="case-no">(2025)沪盈劳仲字第 0345 号</td><td>朗晖照明股份</td><td>劳动争议仲裁</td><td class="lawyer"><span class="mini-ava">顾</span>顾明澜</td><td class="num">¥420,000</td><td><span class="badge b-wait">待立案</span></td></tr>
+            <tr><td class="case-no">(2025)沪盈建初字第 0116 号</td><td>中垣建设集团</td><td>建设工程施工合同纠纷</td><td class="lawyer"><span class="mini-ava">林</span>林隽之</td><td class="num">¥8,600,000</td><td><span class="badge b-doing">进行中</span></td></tr>
+            <tr><td class="case-no">(2025)沪盈金仲字第 0023 号</td><td>溧阳新能源科技</td><td>融资租赁合同纠纷</td><td class="lawyer"><span class="mini-ava">沈</span>沈聿白</td><td class="num">¥5,300,000</td><td><span class="badge b-doing">进行中</span></td></tr>
+            <tr><td class="case-no">(2024)沪盈商终字第 0508 号</td><td>鼎丰国际贸易</td><td>国际货物买卖合同纠纷</td><td class="lawyer"><span class="mini-ava">陈</span>陈砚秋</td><td class="num">¥2,450,000</td><td><span class="badge b-done">已结案</span></td></tr>
+            <tr><td class="case-no">(2024)沪盈婚初字第 0189 号</td><td>委托人（信息保密）</td><td>婚姻家事与财产分割</td><td class="lawyer"><span class="mini-ava">苏</span>苏晚棠</td><td class="num">¥1,200,000</td><td><span class="badge b-done">已结案</span></td></tr>
+            <tr><td class="case-no">(2024)沪盈执字第 0271 号</td><td>蓝湾置业</td><td>追偿权纠纷</td><td class="lawyer"><span class="mini-ava">顾</span>顾明澜</td><td class="num">¥980,000</td><td><span class="badge b-arch">已归档</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 全局提示 -->
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#c8a86b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9"/></svg>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+(function(){
+  var $ = function(s){ return document.querySelector(s); };
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(n, attrs){
+    var e = document.createElementNS(NS, n);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  /* ---- 当前日期 ---- */
+  var d = new Date(), wk = '日一二三四五六';
+  $('#today').textContent = d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日 · 星期' + wk[d.getDay()];
+
+  /* ---- 轻提示 ---- */
+  var toastTimer;
+  function showToast(msg){
+    $('#toastMsg').textContent = msg;
+    $('#toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ $('#toast').classList.remove('show'); }, 2600);
+  }
+
+  /* ---- KPI 数字滚动 ---- */
+  function countUp(node, target, decimals, dur){
+    dur = dur || 1200;
+    var t0 = performance.now();
+    function frame(t){
+      var p = Math.min((t - t0) / dur, 1);
+      var v = target * (1 - Math.pow(1 - p, 3));
+      node.textContent = v.toLocaleString('zh-CN', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+  setTimeout(function(){
+    countUp($('#kpi1'), 1286400, 0, 1300);
+    countUp($('#kpi2'), 186, 0, 900);
+    countUp($('#kpi3'), 2340, 0, 1050);
+    countUp($('#kpi4'), 87.3, 1, 1150);
+  }, 380);
+
+  /* ---- 近 12 个月创收柱状图（单位：万元）---- */
+  var REV = [31.2, 27.8, 35.6, 33.4, 38.9, 36.2, 34.5, 41.3, 44.8, 42.1, 45.3, 41.2];
+  var bc = $('#barChart');
+  var W=760, H=300, L=48, R=14, T=28, B=42;
+  var pw = W-L-R, ph = H-T-B, yMax = 50, band = pw/12, bw = 30;
+
+  // 网格与 Y 轴刻度
+  var unit = el('text', {x:10, y:18, 'font-size':11, fill:'#a39f8f'});
+  unit.textContent = '万元';
+  bc.appendChild(unit);
+  for (var g = 0; g <= 5; g++){
+    var gv = g*10, gy = (T + ph - gv/yMax*ph).toFixed(1);
+    bc.appendChild(el('line', {x1:L, x2:W-R, y1:gy, y2:gy, stroke: g===0 ? '#d9d3c2' : '#ede8db', 'stroke-width':1}));
+    var gt = el('text', {x:L-9, y:(+gy+4).toFixed(1), 'text-anchor':'end', 'font-size':11, fill:'#a39f8f'});
+    gt.textContent = gv;
+    bc.appendChild(gt);
+  }
+  // 月度目标虚线（38 万）
+  var ty = (T + ph - 38/yMax*ph).toFixed(1);
+  bc.appendChild(el('line', {x1:L, x2:W-R, y1:ty, y2:ty, stroke:'#a8874f', 'stroke-width':1.4, 'stroke-dasharray':'5 5', opacity:.85}));
+  var tl = el('text', {x:W-R, y:(ty-7), 'text-anchor':'end', 'font-size':11, fill:'#a8874f'});
+  tl.textContent = '月度目标 38 万';
+  bc.appendChild(tl);
+  // 柱体与月份轴
+  var tip = $('#chartTip'), bodyEl = $('#chartBody');
+  REV.forEach(function(v, i){
+    var x = L + band*i + (band-bw)/2;
+    var h = v/yMax*ph;
+    var rect = el('rect', {x:x.toFixed(1), y:(T+ph-h).toFixed(1), width:bw, height:h.toFixed(1), rx:3, 'class':'bar'});
+    rect.dataset.i = i; rect.dataset.v = v;
+    // 入场逐根延迟生长；悬停变色不受延迟影响
+    rect.style.transition = 'transform .8s cubic-bezier(.22,1,.36,1) ' + (140 + i*45) + 'ms, fill .18s 0ms';
+    bc.appendChild(rect);
+    var m = el('text', {x:(x+bw/2).toFixed(1), y:H-16, 'text-anchor':'middle', 'font-size':11.5, fill:'#8a8676'});
+    m.textContent = (i+1) + '月';
+    bc.appendChild(m);
+  });
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    bc.querySelectorAll('.bar').forEach(function(b){ b.classList.add('on'); });
+  });});
+  // 悬停提示
+  bc.querySelectorAll('.bar').forEach(function(r){
+    r.addEventListener('mouseenter', function(){
+      tip.innerHTML = '<b>' + (+r.dataset.i + 1) + ' 月</b>创收 ¥' + Math.round(r.dataset.v * 10000).toLocaleString('zh-CN');
+      tip.classList.add('show');
+    });
+    r.addEventListener('mousemove', function(e){
+      var b = bodyEl.getBoundingClientRect();
+      tip.style.left = Math.min(Math.max(e.clientX - b.left, 76), b.width - 76) + 'px';
+      tip.style.top  = (e.clientY - b.top - 14) + 'px';
+    });
+    r.addEventListener('mouseleave', function(){ tip.classList.remove('show'); });
+  });
+
+  /* ---- 案件状态环形图 ---- */
+  var SEGS = [
+    {name:'进行中', v:96, c:'#1e5c47'},
+    {name:'待立案', v:10, c:'#c99245'},
+    {name:'已结案', v:38, c:'#6b8f7f'},
+    {name:'已归档', v:42, c:'#b3af9f'}
+  ];
+  var total = 0; SEGS.forEach(function(s){ total += s.v; });
+  var arcs = $('#arcs'), dr = 62, C = 2*Math.PI*dr, gap = 2.5, start = 0, arcEls = [];
+  SEGS.forEach(function(s, i){
+    var len = s.v/total*C - gap;
+    var a = el('circle', {cx:80, cy:80, r:dr, fill:'none', stroke:s.c, 'stroke-width':22,
+      'stroke-dasharray':'0 ' + C.toFixed(2), 'stroke-dashoffset':(-start).toFixed(2)});
+    a._len = len; a._c = C;
+    arcs.appendChild(a); arcEls.push(a);
+    start += s.v/total*C;
+  });
+  // 分段依次生长
+  setTimeout(function(){
+    arcEls.forEach(function(a, i){
+      a.style.transitionDelay = (i*130) + 'ms';
+      a.setAttribute('stroke-dasharray', a._len.toFixed(2) + ' ' + (a._c - a._len).toFixed(2));
+    });
+    setTimeout(function(){
+      arcEls.forEach(function(a){ a.style.transitionDelay = '0ms'; });
+    }, 1500);
+  }, 480);
+  // 图例与环形段联动
+  document.querySelectorAll('.seg').forEach(function(s, i){
+    s.addEventListener('mouseenter', function(){
+      arcEls.forEach(function(a, j){
+        a.style.opacity = (j === i) ? 1 : .25;
+        if (j === i) a.setAttribute('stroke-width', 27);
+      });
+    });
+    s.addEventListener('mouseleave', function(){
+      arcEls.forEach(function(a){ a.style.opacity = 1; a.setAttribute('stroke-width', 22); });
+    });
+  });
+
+  /* ---- 交互反馈 ---- */
+  document.querySelectorAll('.nav-item').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      if (a.classList.contains('active')) return;
+      showToast('正在进入「' + a.querySelector('span').textContent + '」模块…');
+    });
+  });
+  $('#exportBtn').addEventListener('click', function(){
+    showToast('月度经营报表生成中，完成后将发送至您的邮箱');
+  });
+  $('#moreCases').addEventListener('click', function(e){
+    e.preventDefault();
+    showToast('正在载入完整案件列表…');
+  });
+})();
+</script>
+</body>
+</html>

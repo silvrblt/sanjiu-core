@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sanjiu-models.yaml 九方席位配置（schema 参考；yaml 结构约束）",
+  "type": "object",
+  "required": ["version", "defaults", "seats"],
+  "properties": {
+    "version": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "defaults": {
+      "type": "object",
+      "required": ["timeout_sec", "random_rate_l2", "floor_l2"],
+      "properties": {
+        "timeout_sec": {"type": "integer", "minimum": 30},
+        "peak_hours": {"type": "array", "items": {"type": "string"}},
+        "random_rate_l2": {"type": "number", "minimum": 0, "maximum": 1},
+        "floor_l2": {"type": "number", "minimum": 0, "maximum": 1},
+        "audit_dynamic": {
+          "type": "object",
+          "required": ["enabled", "base_rate_l2", "f1_categories", "escalate_rate"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "base_rate_l2": {"type": "number"},
+            "f1_categories": {"type": "array", "items": {"type": "string"}},
+            "escalate_rate": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      }
+    },
+    "seats": {
+      "type": "object",
+      "description": "九席：l1_lead/l1_antagonist/l1_judge/l2_lead/l2_antagonist/l2_judge/l3_lead/l3_antagonist/l3_judge + tool_seats",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["model", "api_id", "cli"],
+        "properties": {
+          "model": {"type": "string", "minLength": 1},
+          "api_id": {"type": "string", "minLength": 1},
+          "cli": {"type": "string", "minLength": 1},
+          "price_in": {"type": "number"},
+          "price_out": {"type": "number"}
+        }
+      }
+    }
+  }
+}

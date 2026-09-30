@@ -1,0 +1,15 @@
+{
+ "task": "code_gen_hard",
+ "date": "2026-09-04",
+ "round": "候选抽测",
+ "prompt_file": "prompt.txt",
+ "results": [
+  {
+   "model": "doubao-seed-2-1-pro-260628",
+   "seconds": 480,
+   "in_tokens": 398,
+   "out_tokens": 25730,
+   "reasoning_tokens": 24311
+  }
+ ]
+}

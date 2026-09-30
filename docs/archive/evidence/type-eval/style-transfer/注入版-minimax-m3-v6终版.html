@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>经营看板 - 律所经营中后台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #F4F2EA;
+    color: #101A2B;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ===== 侧栏 ===== */
+  .sidebar {
+    width: 232px;
+    background: linear-gradient(188deg, #17253E 0%, #101A2E 46%, #0B1424 100%);
+    color: #9AA4BC;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .sidebar::before {
+    content: '';
+    position: absolute;
+    top: -8%;
+    right: -10%;
+    width: 420px;
+    height: 200px;
+    background: radial-gradient(closest-side, rgba(227,181,74,.16), transparent 70%);
+    pointer-events: none;
+  }
+  .brand {
+    padding: 22px 22px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .brand-logo {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #E3B54A, #A57C22);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    color: #101A2E;
+    font-weight: 700;
+    font-size: 14px;
+    font-family: "Georgia", serif;
+  }
+  .brand-text { color: #E9EBF2; font-size: 15px; font-weight: 600; letter-spacing: .5px; }
+  .brand-sub { color: #5C6784; font-size: 11px; letter-spacing: 3px; margin-top: 2px; }
+
+  .nav-group { padding: 18px 0 6px; }
+  .nav-title {
+    color: #5C6784; font-size: 11px; letter-spacing: 3px;
+    padding: 0 22px 8px; text-transform: uppercase;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 22px 11px 18px;
+    color: #9AA4BC; font-size: 14px;
+    cursor: pointer; position: relative;
+    transition: background .15s, color .15s;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.055); color: #E9EBF2; }
+  .nav-item.active {
+    color: #F5EDD6;
+    background: linear-gradient(90deg, rgba(194,153,51,.20), rgba(194,153,51,.04));
+  }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 8px; bottom: 8px;
+    width: 3.5px;
+    background: linear-gradient(180deg, #E3B54A, #A57C22);
+    border-radius: 3px;
+  }
+  .nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
+  .nav-icon svg { width: 18px; height: 18px; stroke-width: 1.7; stroke: currentColor; fill: none; }
+  .nav-badge {
+    margin-left: auto;
+    background: rgba(227,181,74,.16);
+    color: #E3B54A;
+    border: 1px solid rgba(227,181,74,.35);
+    font-size: 11px; padding: 1px 7px; border-radius: 9px;
+  }
+  .sidebar-footer {
+    position: absolute; bottom: 18px; left: 22px; right: 22px;
+    color: #5C6784; font-size: 11px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    padding-top: 12px;
+  }
+  .sidebar-footer .user { display: flex; align-items: center; gap: 10px; color: #E9EBF2; font-size: 13px; margin-bottom: 4px;}
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #3D5A8F, #1f3458); color: #E9EBF2; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;}
+
+  /* ===== 主区域 ===== */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .topbar {
+    background: #FFFFFF;
+    border-bottom: 1px solid #E4DFD1;
+    padding: 18px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .page-title { font-size: 20px; font-weight: 600; color: #101A2B; }
+  .page-title small { color: #8A8FA0; font-size: 13px; font-weight: 400; margin-left: 10px; }
+  .topbar-right { display: flex; align-items: center; gap: 18px; color: #5C6784; font-size: 13px; }
+  .pill {
+    border: 1px solid #E4DFD1; border-radius: 16px;
+    padding: 4px 12px; font-size: 12px; color: #5C6784;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: #3FA97C;}
+
+  .content { padding: 24px 32px 32px; flex: 1; }
+
+  /* ===== 通用卡片 ===== */
+  .card {
+    background: #FFFFFF;
+    border: 1px solid #E4DFD1;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(16,26,43,.06);
+    padding: 20px 22px;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .card-title { font-size: 15px; font-weight: 600; color: #101A2B; }
+  .card-sub { color: #8A8FA0; font-size: 12px; }
+  .card-foot { color: #8A8FA0; font-size: 11px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #E4DFD1;}
+
+  /* ===== KPI ===== */
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 18px; margin-bottom: 20px;
+    align-items: start;
+  }
+  .kpi { padding: 20px 22px; }
+  .kpi-label { color: #5C6784; font-size: 13px; display: flex; align-items: center; justify-content: space-between; }
+  .kpi-value { font-size: 28px; font-weight: 700; color: #101A2B; margin: 10px 0 8px; letter-spacing: -.3px; }
+  .kpi-value .unit { font-size: 14px; color: #8A8FA0; font-weight: 400; margin-left: 4px; }
+  .kpi-foot { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #8A8FA0; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: #E8E4D8; color: #6B6A4E;
+    border-radius: 10px; padding: 2px 8px; font-size: 11px;
+  }
+  .badge.up { color: #3FA97C; }
+  .badge.down { color: #B07A62; }
+  .badge .tri { font-size: 9px; }
+
+  /* ===== 中排 3 卡 ===== */
+  .mid-grid {
+    display: grid; grid-template-columns: 1.6fr 1fr 1.1fr;
+    gap: 18px; margin-bottom: 20px;
+    align-items: start;
+  }
+
+  /* 趋势图 */
+  .chart-area { position: relative; height: 260px; padding: 8px 6px 26px; }
+  .chart-grid { position: absolute; left: 36px; right: 6px; top: 8px; bottom: 26px; }
+  .grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #E5E0D2; font-size: 10px; color: #8A8FA0; }
+  .grid-line span { position: absolute; right: 100%; padding-right: 6px; transform: translateY(-50%); }
+  .bars { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 4px;}
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; position: relative;}
+  .bar {
+    width: 60%; max-width: 22px;
+    background: #3D5A8F;
+    border-radius: 3px 3px 0 0;
+    transition: opacity .2s;
+  }
+  .bar.cur { background: #C29933; }
+  .bar.gray { background: #8A8FA0; }
+  .bar:hover { opacity: .78; }
+  .bar-label { position: absolute; bottom: -22px; font-size: 11px; color: #8A8FA0; }
+  .bar-label.cur { color: #C29933; font-weight: 600; }
+  .chart-legend { position: absolute; top: 0; right: 6px; display: flex; gap: 12px; font-size: 11px; color: #5C6784;}
+  .chart-legend .lg-item { display: flex; align-items: center; gap: 5px;}
+  .lg-dot { width: 9px; height: 9px; border-radius: 2px;}
+
+  /* 环形图 */
+  .ring-layout { display: flex; align-items: center; gap: 18px;}
+  .ring-svg { width: 150px; height: 150px; flex-shrink: 0;}
+  .ring-legend { flex: 1; min-width: 0;}
+  .legend-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 0; border-bottom: 1px dashed #E4DFD1;
+    font-size: 12px; color: #5C6784;
+  }
+  .legend-item:last-child { border-bottom: none; }
+  .legend-item .left { display: flex; align-items: center; gap: 8px; white-space: nowrap; min-width: 110px;}
+  .legend-item .ldot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0;}
+  .legend-item .pct { color: #101A2B; font-weight: 600; font-size: 13px;}
+  .ring-center-label { font-size: 11px; fill: #8A8FA0; text-anchor: middle; }
+  .ring-center-val { font-size: 18px; fill: #101A2B; font-weight: 700; text-anchor: middle; }
+
+  /* 待办提醒 */
+  .todo-list { display: flex; flex-direction: column; gap: 0;}
+  .todo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-bottom: 1px dashed #E4DFD1;
+    font-size: 12.5px;
+  }
+  .todo:last-child { border-bottom: none; }
+  .todo-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;}
+  .dot-red { background: #B07A62;}
+  .dot-orange { background: #C29933;}
+  .dot-green { background: #3FA97C;}
+  .todo-body { flex: 1; min-width: 0;}
+  .todo-title { color: #101A2B; font-weight: 500; display: flex; align-items: center; gap: 6px;}
+  .todo-title .case-no { color: #8A8FA0; font-weight: 400; font-size: 11.5px;}
+  .todo-meta { color: #8A8FA0; font-size: 11px; margin-top: 2px; display: flex; gap: 10px;}
+  .todo-days {
+    font-size: 11px; padding: 2px 7px; border-radius: 9px;
+    flex-shrink: 0;
+  }
+  .days-urgent { background: rgba(176,122,98,.14); color: #B07A62;}
+  .days-warn { background: rgba(194,153,51,.14); color: #8A6A14;}
+  .days-ok { background: rgba(63,169,124,.14); color: #3FA97C;}
+
+  /* ===== 律师产能榜 ===== */
+  .lawyer-list { display: flex; flex-direction: column; gap: 14px;}
+  .lawyer-row { display: grid; grid-template-columns: 24px 1.2fr .8fr 1fr .8fr; gap: 12px; align-items: center; font-size: 12.5px; }
+  .lawyer-rank { color: #C29933; font-weight: 700; font-family: Georgia, serif;}
+  .lawyer-name { color: #101A2B; font-weight: 500; display: flex; align-items: center; gap: 8px;}
+  .lawyer-name .sub { color: #8A8FA0; font-size: 11px; font-weight: 400;}
+  .lawyer-cell-num { color: #101A2B; font-weight: 600; }
+  .progress-wrap { background: #F4F2EA; height: 6px; border-radius: 3px; overflow: hidden; position: relative; }
+  .progress-bar { background: #3D5A8F; height: 100%; border-radius: 3px; }
+  .progress-bar.gold { background: #C29933; }
+  .lawyer-change { font-size: 11.5px; }
+  .lawyer-change.up { color: #3FA97C; }
+  .lawyer-change.down { color: #B07A62; }
+
+  /* ===== 案件表 ===== */
+  .table-wrap { overflow-x: auto; }
+  table.cases { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 880px; }
+  table.cases thead th {
+    background: #F4F2EA; color: #5C6784; font-weight: 500;
+    text-align: left; padding: 10px 12px;
+    border-bottom: 1px solid #E4DFD1;
+    font-size: 12px; letter-spacing: .3px;
+  }
+  table.cases tbody td {
+    padding: 11px 12px;
+    border-bottom: 1px solid #EFEBDF;
+    color: #101A2B;
+  }
+  table.cases tbody tr:hover { background: #FAF8F0; }
+  table.cases tbody tr:last-child td { border-bottom: none; }
+  .case-no { color: #8A6A14; font-family: Georgia, serif; font-weight: 600; }
+  .tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #F1EDDF; color: #5A4A2A;
+    border-radius: 9px; padding: 2px 9px; font-size: 11.5px;
+  }
+  .tag.active { background: rgba(63,169,124,.12); color: #2C7A5C; }
+  .tag.active::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #3FA97C;}
+  .tag.archived { background: #ECEAE0; color: #6B6A4E; }
+  .tag.pending { background: rgba(194,153,51,.14); color: #8A6A14; }
+  .tag.closed { background: rgba(138,143,160,.16); color: #4A5266; }
+  .num { font-family: Georgia, serif; font-weight: 600; }
+
+  /* ===== 页脚 ===== */
+  .footer {
+    padding: 18px 32px;
+    color: #8A8FA0; font-size: 12px;
+    border-top: 1px solid #E4DFD1;
+    display: flex; justify-content: space-between; align-items: center;
+    background: #FFFFFF;
+  }
+  .footer-right { display: flex; gap: 16px;}
+  .footer-right span::before { content: '·'; margin-right: 8px; color: #C29933; }
+  .footer-right span:first-child::before { content: ''; margin: 0; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ============ 侧栏 ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">明</div>
+      <div>
+        <div class="brand-text">明衡律师事务所</div>
+        <div class="brand-sub">LAW FIRM</div>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-title">经营中枢</div>
+      <div class="nav-item active">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></span>
+        经营看板
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h12"/></svg></span>
+        案件管理
+        <span class="nav-badge">186</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></span>
+        客户管理
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M5 9h11a3 3 0 010 6H8a3 3 0 000 6h11"/></svg></span>
+        财务管理
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-title">系统</div>
+      <div class="nav-item">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 008 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.16.59.55 1.06 1 1.4.34.26.6.61.6 1.1v.5c0 .49-.26.84-.6 1.1-.45.34-.84.81-1 1.4z"/></svg></span>
+        系统设置
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user">
+        <div class="avatar">陈</div>
+        <div>
+          <div>陈志远</div>
+          <div style="color:#5C6784;font-size:11px;">运营总监</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ 主区域 ============ -->
+  <main class="main">
+    <div class="topbar">
+      <div class="page-title">经营看板<small>· 实时数据更新于 2026-09-05 09:42</small></div>
+      <div class="topbar-right">
+        <span class="pill"><span class="dot"></span>系统正常</span>
+        <span>2026年09月05日 周六</span>
+        <span style="color:#101A2B;font-weight:500;">陈志远 ▾</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ===== KPI ===== -->
+      <div class="kpi-grid">
+        <div class="card kpi">
+          <div class="kpi-label">本季创收 <span style="color:#8A8FA0;font-size:11px;">Q3 · 2026</span></div>
+          <div class="kpi-value">¥1,286,400</div>
+          <div class="kpi-foot">
+            <span class="badge up"><span class="tri">▲</span> 12.6%</span>
+            <span>较上季</span>
+          </div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">在办案件 <span style="color:#8A8FA0;font-size:11px;">含诉前调解</span></div>
+          <div class="kpi-value">186<span class="unit">件</span></div>
+          <div class="kpi-foot">
+            <span class="badge up"><span class="tri">▲</span> 8 件</span>
+            <span>较上月</span>
+          </div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">客户总数 <span style="color:#8A8FA0;font-size:11px;">活跃 + 历史</span></div>
+          <div class="kpi-value">2,340</div>
+          <div class="kpi-foot">
+            <span class="badge up"><span class="tri">▲</span> 64</span>
+            <span>本年新增</span>
+          </div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">回款率 <span style="color:#8A8FA0;font-size:11px;">本季已结案</span></div>
+          <div class="kpi-value">87.3<span class="unit">%</span></div>
+          <div class="kpi-foot">
+            <span class="badge up"><span class="tri">▲</span> 3.1%</span>
+            <span>较上季</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 中排 3 卡 ===== -->
+      <div class="mid-grid">
+
+        <!-- 趋势图 -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">近 12 个月创收趋势</div>
+              <div class="card-sub">单位：万元　·　对比 2025 同期</div>
+            </div>
+            <div class="chart-legend">
+              <span class="lg-item"><span class="lg-dot" style="background:#3D5A8F;"></span>2026</span>
+              <span class="lg-item"><span class="lg-dot" style="background:#8A8FA0;"></span>2025</span>
+              <span class="lg-item"><span class="lg-dot" style="background:#C29933;"></span>本月</span>
+            </div>
+          </div>
+          <div class="chart-area" id="chartArea">
+            <div class="chart-grid">
+              <div class="grid-line" style="top:0%;"><span>120</span></div>
+              <div class="grid-line" style="top:25%;"><span>90</span></div>
+              <div class="grid-line" style="top:50%;"><span>60</span></div>
+              <div class="grid-line" style="top:75%;"><span>30</span></div>
+              <div class="grid-line" style="top:100%;"><span>0</span></div>
+            </div>
+            <div class="bars" id="bars"></div>
+          </div>
+          <div class="card-foot">注：9 月数据截至 09-05，含已确认开票及在途回款预估</div>
+        </div>
+
+        <!-- 环形图 -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">案件状态分布</div>
+              <div class="card-sub">共 186 件</div>
+            </div>
+          </div>
+          <div class="ring-layout">
+            <svg class="ring-svg" viewBox="0 0 42 42">
+              <circle cx="21" cy="21" r="15.915" fill="none" stroke="#F4F2EA" stroke-width="6"/>
+              <!-- 进行中 48% -->
+              <circle cx="21" cy="21" r="15.915" fill="none" stroke="#3D5A8F" stroke-width="6"
+                stroke-dasharray="48 52" stroke-dashoffset="25" transform="rotate(-90 21 21)"/>
+              <!-- 已结案 22% -->
+              <circle cx="21" cy="21" r="15.915" fill="none" stroke="#8A8FA0" stroke-width="6"
+                stroke-dasharray="22 78" stroke-dashoffset="-23" transform="rotate(-90 21 21)"/>
+              <!-- 待立案 12% -->
+              <circle cx="21" cy="21" r="15.915" fill="none" stroke="#C29933" stroke-width="6"
+                stroke-dasharray="12 88" stroke-dashoffset="-45" transform="rotate(-90 21 21)"/>
+              <!-- 已归档 18% -->
+              <circle cx="21" cy="21" r="15.915" fill="none" stroke="#8FA38C" stroke-width="6"
+                stroke-dasharray="18 82" stroke-dashoffset="-57" transform="rotate(-90 21 21)"/>
+              <text x="21" y="20" class="ring-center-val">186</text>
+              <text x="21" y="27" class="ring-center-label">件</text>
+            </svg>
+            <div class="ring-legend">
+              <div class="legend-item">
+                <span class="left"><span class="ldot" style="background:#3D5A8F;"></span>进行中</span>
+                <span class="pct">89 件 · 48%</span>
+              </div>
+              <div class="legend-item">
+                <span class="left"><span class="ldot" style="background:#8FA38C;"></span>已归档</span>
+                <span class="pct">34 件 · 18%</span>
+              </div>
+              <div class="legend-item">
+                <span class="left"><span class="ldot" style="background:#C29933;"></span>待立案</span>
+                <span class="pct">22 件 · 12%</span>
+              </div>
+              <div class="legend-item">
+                <span class="left"><span class="ldot" style="background:#8A8FA0;"></span>已结案</span>
+                <span class="pct">41 件 · 22%</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-foot">较上月：进行中 +5，归档 +3，待立案 -2</div>
+        </div>
+
+        <!-- 待办提醒 -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">审限与待办提醒</div>
+              <div class="card-sub">6 项需关注</div>
+            </div>
+            <span class="pill" style="color:#B07A62;border-color:rgba(176,122,98,.3);background:rgba(176,122,98,.08);">2 紧急</span>
+          </div>
+          <div class="todo-list">
+            <div class="todo">
+              <span class="todo-dot dot-red"></span>
+              <div class="todo-body">
+                <div class="todo-title">提交上诉状 <span class="case-no">(2026)沪0115民初0452号</span></div>
+                <div class="todo-meta"><span>承办：张明哲</span><span>民商事·二审</span></div>
+              </div>
+              <span class="todo-days days-urgent">剩 1 天</span>
+            </div>
+            <div class="todo">
+              <span class="todo-dot dot-red"></span>
+              <div class="todo-body">
+                <div class="todo-title">财产保全续封 <span class="case-no">(2026)沪0109民初1138号</span></div>
+                <div class="todo-meta"><span>承办：李文静</span><span>商事·执行</span></div>
+              </div>
+              <span class="todo-days days-urgent">剩 2 天</span>
+            </div>
+            <div class="todo">
+              <span class="todo-dot dot-orange"></span>
+              <div class="todo-body">
+                <div class="todo-title">证据交换 <span class="case-no">(2026)沪0115民初0671号</span></div>
+                <div class="todo-meta"><span>承办：王浩然</span><span>知识产权</span></div>
+              </div>
+              <span class="todo-days days-warn">剩 5 天</span>
+            </div>
+            <div class="todo">
+              <span class="todo-dot dot-orange"></span>
+              <div class="todo-body">
+                <div class="todo-title">客户回款对账 <span class="case-no">#CL-2026-0912</span></div>
+                <div class="todo-meta"><span>客户：上海某科技公司</span><span>常年顾问</span></div>
+              </div>
+              <span class="todo-days days-warn">剩 7 天</span>
+            </div>
+            <div class="todo">
+              <span class="todo-dot dot-green"></span>
+              <div class="todo-body">
+                <div class="todo-title">开庭准备 <span class="case-no">(2026)沪0109民初0521号</span></div>
+                <div class="todo-meta"><span>承办：陈思雨</span><span>劳动争议</span></div>
+              </div>
+              <span class="todo-days days-ok">剩 12 天</span>
+            </div>
+            <div class="todo">
+              <span class="todo-dot dot-green"></span>
+              <div class="todo-body">
+                <div class="todo-title">合同审查 <span class="case-no">#HT-2026-Q3-184</span></div>
+                <div class="todo-meta"><span>客户：苏州某制造企业</span><span>常年顾问</span></div>
+              </div>
+              <span class="todo-days days-ok">剩 15 天</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 下排：律师产能 + 案件表 ===== -->
+      <div class="mid-grid" style="grid-template-columns: 1fr 2fr;">
+
+        <!-- 律师产能榜 -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">承办律师产能榜</div>
+              <div class="card-sub">本季 Top 5</div>
+            </div>
+          </div>
+          <div class="lawyer-list">
+            <div class="lawyer-row">
+              <div class="lawyer-rank">01</div>
+              <div class="lawyer-name">张明哲 <span class="sub">合伙人</span></div>
+              <div class="lawyer-cell-num">38件</div>
+              <div class="progress-wrap"><div class="progress-bar gold" style="width:96%;"></div></div>
+              <div class="lawyer-change up">▲ 18.2%</div>
+            </div>
+            <div class="lawyer-row">
+              <div class="lawyer-rank">02</div>
+              <div class="lawyer-name">李文静 <span class="sub">高级律师</span></div>
+              <div class="lawyer-cell-num">31件</div>
+              <div class="progress-wrap"><div class="progress-bar" style="width:82%;"></div></div>
+              <div class="lawyer-change up">▲ 9.4%</div>
+            </div>
+            <div class="lawyer-row">
+              <div class="lawyer-rank">03</div>
+              <div class="lawyer-name">王浩然 <span class="sub">律师</span></div>
+              <div class="lawyer-cell-num">26件</div>
+              <div class="progress-wrap"><div class="progress-bar" style="width:71%;"></div></div>
+              <div class="lawyer-change up">▲ 4.1%</div>
+            </div>
+            <div class="lawyer-row">
+              <div class="lawyer-rank">04</div>
+              <div class="lawyer-name">陈思雨 <span class="sub">律师</span></div>
+              <div class="lawyer-cell-num">22件</div>
+              <div class="progress-wrap"><div class="progress-bar" style="width:62%;"></div></div>
+              <div class="lawyer-change down">▼ 2.3%</div>
+            </div>
+            <div class="lawyer-row">
+              <div class="lawyer-rank">05</div>
+              <div class="lawyer-name">刘子昂 <span class="sub">律师</span></div>
+              <div class="lawyer-cell-num">19件</div>
+              <div class="progress-wrap"><div class="progress-bar" style="width:54%;"></div></div>
+              <div class="lawyer-change up">▲ 1.8%</div>
+            </div>
+          </div>
+          <div class="card-foot">数据截至 2026-09-01 · 创收单位：元</div>
+        </div>
+
+        <!-- 案件明细表 -->
+        <div class="card" style="padding-bottom:14px;">
+          <div class="card-head">
+            <div>
+              <div class="card-title">最近案件明细</div>
+              <div class="card-sub">按最近动作时间倒序 · 共显示 10 条</div>
+            </div>
+            <span class="pill" style="color:#5C6784;">查看全部 →</span>
+          </div>
+          <div class="table-wrap">
+            <table class="cases">
+              <thead>
+                <tr>
+                  <th>案号</th>
+                  <th>客户</th>
+                  <th>案件类型</th>
+                  <th>承办律师</th>
+                  <th style="text-align:right;">标的额</th>
+                  <th>状态</th>
+                  <th>最近动作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="case-no">(2026)沪0115民初0452</td>
+                  <td>上海某科技股份公司</td>
+                  <td>商事合同纠纷</td>
+                  <td>张明哲</td>
+                  <td class="num" style="text-align:right;">¥ 8,600,000</td>
+                  <td><span class="tag active">进行中</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">09-05 提交上诉状</td>
+                </tr>
+                <tr>
+                  <td class="case-no">(2026)沪0109民初1138</td>
+                  <td>苏州某制造企业</td>
+                  <td>买卖合同纠纷</td>
+                  <td>李文静</td>
+                  <td class="num" style="text-align:right;">¥ 3,250,000</td>
+                  <td><span class="tag active">进行中</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">09-05 申请财产保全</td>
+                </tr>
+                <tr>
+                  <td class="case-no">(2026)沪0115民初0671</td>
+                  <td>杭州某网络科技公司</td>
+                  <td>知识产权侵权</td>
+                  <td>王浩然</td>
+                  <td class="num" style="text-align:right;">¥ 1,200,000</td>
+                  <td><span class="tag active">进行中</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">09-04 收到答辩状</td>
+                </tr>
+                <tr>
+                  <td class="case-no">(2026)沪0115民初0892</td>
+                  <td>个人 · 周某某</td>
+                  <td>婚姻家事</td>
+                  <td>陈思雨</td>
+                  <td class="num" style="text-align:right;">¥ 4,800,000</td>
+                  <td><span class="tag pending">待立案</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">09-04 起草起诉状</td>
+                </tr>
+                <tr>
+                  <td class="case-no">(2026)沪0109民初0521</td>
+                  <td>上海某餐饮管理公司</td>
+                  <td>劳动争议</td>
+                  <td>陈思雨</td>
+                  <td class="num" style="text-align:right;">¥ 380,000</td>
+                  <td><span class="tag active">进行中</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">09-03 完成证据质证</td>
+                </tr>
+                <tr>
+                  <td class="case-no">(2026)沪0109民初1019</td>
+                  <td>某外资制造集团</td>
+                  <td>股权纠纷</td>
+                  <td>张明哲</td>
+                  <td class="num" style="text-align:right;">¥ 26,500,000</td>
+                  <td><span class="tag active">进行中</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">09-03 召开案情研讨会</td>
+                </tr>
+                <tr>
+                  <td class="case-no">(2026)沪0115民初0298</td>
+                  <td>南京某贸易公司</td>
+                  <td>债权追偿</td>
+                  <td>刘子昂</td>
+                  <td class="num" style="text-align:right;">¥ 1,860,000</td>
+                  <td><span class="tag closed">已结案</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">09-02 收到判决书</td>
+                </tr>
+                <tr>
+                  <td class="case-no">(2026)沪0115民初0117</td>
+                  <td>上海某地产开发公司</td>
+                  <td>建设工程合同</td>
+                  <td>李文静</td>
+                  <td class="num" style="text-align:right;">¥ 12,300,000</td>
+                  <td><span class="tag archived">已归档</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">09-01 归档结案</td>
+                </tr>
+                <tr>
+                  <td class="case-no">(2026)沪0109民初1042</td>
+                  <td>无锡某新材料公司</td>
+                  <td>商事合同纠纷</td>
+                  <td>王浩然</td>
+                  <td class="num" style="text-align:right;">¥ 5,400,000</td>
+                  <td><span class="tag pending">待立案</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">08-31 完成尽职调查</td>
+                </tr>
+                <tr>
+                  <td class="case-no">(2026)沪0109民初0564</td>
+                  <td>某互联网平台公司</td>
+                  <td>数据合规咨询</td>
+                  <td>张明哲</td>
+                  <td class="num" style="text-align:right;">¥ — </td>
+                  <td><span class="tag active">进行中</span></td>
+                  <td style="color:#8A8FA0;font-size:11.5px;">08-30 提交合规报告</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-foot">更多案件请前往「案件管理」模块查看</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== 页脚 ===== -->
+    <footer class="footer">
+      <div>明衡律师事务所　© 2026 明衡律师事务所　保留所有权利</div>
+      <div class="footer-right">
+        <span>最后更新：2026-09-05 09:42</span>
+        <span>系统版本：v3.2.1</span>
+        <span>合规备案：沪 ICP 备 20240815 号</span>
+      </div>
+    </footer>
+  </main>
+</div>
+
+<script>
+  // 渲染趋势柱状图（2026 vs 2025 同期, 12 个月, 本月高亮金色）
+  (function(){
+    const data = {
+      cur:  [78, 82, 86, 91, 95, 102, 108, 112, 38],
+      prev: [62, 65, 70, 74, 78, 82, 85, 89, null, null, null, null]
+    };
+    const months = ['10月','11月','12月','1月','2月','3月','4月','5月','6月','7月','8月','9月'];
+    // 拼成 12 段
+    const curFull  = [78, 82, 86, 91, 95, 102, 108, 112, 118, 105, 116, 38]; // 9月为部分月
+    const prevFull = [62, 65, 70, 74, 78, 82,  85,  89,  92,  88,  95, 90];
+    const max = 120;
+    const bars = document.getElementById('bars');
+    for (let i = 0; i < 12; i++) {
+      const wrap = document.createElement('div');
+      wrap.className = 'bar-wrap';
+      // 同时显示两根：当年 + 同期（用并排细柱实现）
+      const inner = document.createElement('div');
+      inner.style.display = 'flex';
+      inner.style.alignItems = 'flex-end';
+      inner.style.gap = '3px';
+      inner.style.height = '100%';
+
+      const c = document.createElement('div');
+      c.className = 'bar' + (i === 11 ? ' cur' : '');
+      c.style.height = (curFull[i] / max * 100) + '%';
+      c.title = months[i] + ' · 2026：' + curFull[i] + '万';
+      inner.appendChild(c);
+
+      const p = document.createElement('div');
+      p.className = 'bar gray';
+      p.style.height = (prevFull[i] / max * 100) + '%';
+      p.style.opacity = '.55';
+      p.title = months[i] + ' · 2025：' + prevFull[i] + '万';
+      inner.appendChild(p);
+
+      wrap.appendChild(inner);
+
+      const lab = document.createElement('div');
+      lab.className = 'bar-label' + (i === 11 ? ' cur' : '');
+      lab.textContent = months[i];
+      wrap.appendChild(lab);
+
+      bars.appendChild(wrap);
+    }
+  })();
+</script>
+</body>
+</html>

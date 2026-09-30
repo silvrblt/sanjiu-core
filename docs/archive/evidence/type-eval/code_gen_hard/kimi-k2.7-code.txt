@@ -1,0 +1,103 @@
+import math, re
+
+_RE = re.compile(r'\s*([A-Za-z_]\w*|\d+(?:\.\d*)?|\.\d+|==|!=|>=|<=|[+\-*/()<>]|"[^"]*"|\'[^\']*\')')
+
+def _tok(s):
+    t, i, n = [], 0, len(s)
+    while i < n:
+        m = _RE.match(s, i)
+        if not m: break
+        i = m.end(); x = m.group(1)
+        if x[0].isdigit():
+            t.append(('NUM', float(x) if '.' in x else int(x)))
+        elif x[0] in '"\'':
+            t.append(('STR', x[1:-1].replace('\\\\', '\\').replace('\\"', '"').replace("\\'", "'")))
+        else:
+            t.append(('ID', x))
+    return t
+
+def _cond(ts, c):
+    n = len(ts); p = [0]; miss = object()
+    def atom():
+        k, v = ts[p[0]]
+        if v == '(':
+            p[0] += 1; node = expr()
+            if p[0] < n and ts[p[0]][1] == ')': p[0] += 1
+            return node
+        p[0] += 1; return (k, v)
+    def cmpn():
+        node = atom()
+        if p[0] < n and ts[p[0]][1] in ('==', '!=', '>', '>=', '<', '<='):
+            op = ts[p[0]][1]; p[0] += 1; return ('cmp', op, node, atom())
+        return node
+    def notn():
+        if p[0] < n and ts[p[0]][1] == 'not':
+            p[0] += 1; return ('not', notn())
+        return cmpn()
+    def andn():
+        node = notn()
+        while p[0] < n and ts[p[0]][1] == 'and':
+            p[0] += 1; node = ('and', node, andn())
+        return node
+    def expr():
+        node = andn()
+        while p[0] < n and ts[p[0]][1] == 'or':
+            p[0] += 1; node = ('or', node, expr())
+        return node
+    def val(it):
+        return it[1] if it[0] in ('NUM', 'STR') else c.get(it[1], miss)
+    def ev(nd):
+        a = nd[0]
+        if a in ('NUM', 'STR'): return nd[1]
+        if a == 'ID': return c.get(nd[1], miss)
+        if a == 'cmp':
+            l, r = val(nd[2]), val(nd[3])
+            if l is miss or r is miss: return False
+            if nd[1] == '==': return l == r
+            if nd[1] == '!=': return l != r
+            try:
+                if nd[1] == '>': return l > r
+                if nd[1] == '>=': return l >= r
+                if nd[1] == '<': return l < r
+                if nd[1] == '<=': return l <= r
+            except TypeError: return False
+        if a == 'not': return not ev(nd[1])
+        if a == 'and': return ev(nd[1]) and ev(nd[2])
+        if a == 'or': return ev(nd[1]) or ev(nd[2])
+    try:
+        return bool(ev(expr())) if ts else False
+    except Exception: return False
+
+def _arith(ts, c):
+    n = len(ts); p = [0]
+    def fac():
+        k, v = ts[p[0]]
+        if v == '(':
+            p[0] += 1; node = expr(); p[0] += 1; return node
+        p[0] += 1; return ('var', v) if k == 'ID' else ('num', v)
+    def term():
+        node = fac()
+        while p[0] < n and ts[p[0]][1] in ('*', '/'):
+            op = ts[p[0]][1]; p[0] += 1; node = ('op', op, node, fac())
+        return node
+    def expr():
+        node = term()
+        while p[0] < n and ts[p[0]][1] in ('+', '-'):
+            op = ts[p[0]][1]; p[0] += 1; node = ('op', op, node, term())
+        return node
+    def ev(nd):
+        if nd[0] == 'num': return nd[1]
+        if nd[0] == 'var': return c.get(nd[1], 0)
+        l, r = ev(nd[2]), ev(nd[3])
+        if nd[1] == '+': return l + r
+        if nd[1] == '-': return l - r
+        if nd[1] == '*': return l * r
+        return l / r
+    return ev(expr())
+
+def evaluate_rules(customer, rules):
+    for rule in rules:
+        if _cond(_tok(rule['cond']), customer):
+            pts = _arith(_tok(str(rule['action']['points'])), customer)
+            return {'points': int(math.floor(pts))}
+    return None

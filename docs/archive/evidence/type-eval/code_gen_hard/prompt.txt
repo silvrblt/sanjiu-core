@@ -1,0 +1,11 @@
+用 Python 实现函数 evaluate_rules(customer, rules)，做条件规则求值（律所客户分层积分场景）。
+customer 为 dict，如 {"spend": 12800, "type": "corporate", "months": 6, "region": "east"}；字段值只可能是 int/float/str，也可能缺失。
+rules 为 list[dict]，每项 {"id": ..., "cond": str, "action": dict}。
+cond 是条件表达式字符串，语法：
+  比较：==  !=  >  >=  <  <=，操作数 = 字段名 | 数字字面量（含小数）| 单引号或双引号字符串字面量
+  逻辑：and or not，支持括号；优先级：not > and > or
+  约束：customer 中缺失的字段在比较中一律按 False 处理（整条 cond 短路为 False，不得抛异常）
+action 为 {"points": 数值字面量 或 字段算术表达式}；字段算术表达式仅支持 + - * / 与括号、操作数为字段名或数字，如 "spend/70"，求值后向下取整为 int。
+语义：按 rules 顺序返回第一条 cond 为真的 action 求值结果 dict {"points": int}；全部不命中返回 None。
+禁止使用 eval/exec/动态 import；cond 与算术表达式必须自己解析求值，不得硬编码字段名集合。
+≤120 行。只输出完整可运行的 Python 代码（函数定义即可），不要解释，不要 markdown 围栏。

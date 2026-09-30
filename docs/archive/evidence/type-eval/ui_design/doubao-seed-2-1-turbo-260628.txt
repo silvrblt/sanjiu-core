@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>律所经营中后台 - 经营看板</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+body {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+/* 左侧侧栏 */
+.sidebar {
+  width: 240px;
+  background-color: #1e293b;
+  color: #f8fafc;
+  padding: 24px 0;
+  flex-shrink: 0;
+}
+.sidebar .brand {
+  font-size: 18px;
+  font-weight: 600;
+  padding: 0 24px 32px;
+  border-bottom: 1px solid #334155;
+  margin-bottom: 16px;
+}
+.sidebar .nav-item {
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+.sidebar .nav-item:hover {
+  background-color: #334155;
+}
+/* 主内容区 */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  background: white;
+  padding: 20px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.topbar .page-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1e293b;
+}
+.topbar .current-date {
+  color: #64748b;
+  font-size: 14px;
+}
+.content {
+  padding: 32px;
+  flex: 1;
+}
+/* KPI卡片 */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.kpi-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.kpi-card .label {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+.kpi-card .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+.kpi-card .trend {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.kpi-card .trend.up {
+  color: #10b981;
+}
+.kpi-card .trend.flat {
+  color: #64748b;
+}
+/* 图表区域 */
+.charts-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.chart-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.chart-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 20px;
+}
+/* 柱状图 */
+.bar-chart {
+  width: 100%;
+  height: 300px;
+}
+.bar-chart .bar {
+  fill: #3b82f6;
+  transition: fill 0.2s;
+}
+.bar-chart .bar:hover {
+  fill: #2563eb;
+}
+.bar-chart .axis {
+  stroke: #cbd5e1;
+  stroke-width: 1;
+}
+.bar-chart .axis-label {
+  font-size: 12px;
+  fill: #64748b;
+  text-anchor: middle;
+}
+.bar-chart .grid-line {
+  stroke: #f1f5f9;
+  stroke-width: 1;
+}
+/* 环形图 */
+.donut-chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.donut-chart {
+  width: 200px;
+  height: 200px;
+}
+.donut-chart circle {
+  fill: none;
+  stroke-width: 30;
+}
+.donut-center-text {
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: #1e293b;
+}
+.donut-center-text.title {
+  font-size: 14px;
+  font-weight: 500;
+}
+.donut-center-text.value {
+  font-size: 18px;
+  font-weight: 700;
+}
+/* 图例 */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.legend-item .left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legend-item .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.legend-item .percent {
+  color: #64748b;
+  font-size: 13px;
+}
+/* 表格 */
+.table-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.table-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 20px;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data-table th {
+  text-align: left;
+  padding: 12px 16px;
+  background-color: #f8fafc;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+.data-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+.data-table tr:hover {
+  background-color: #f8fafc;
+}
+.status-tag {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+.status-tag.ongoing {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+.status-tag.archived {
+  background-color: #e2e8f0;
+  color: #475569;
+}
+.status-tag.pending {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+.status-tag.closed {
+  background-color: #d1fae5;
+  color: #047857;
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">律所经营中后台</div>
+    <nav>
+      <div class="nav-item">案件管理</div>
+      <div class="nav-item">客户管理</div>
+      <div class="nav-item">财务管理</div>
+      <div class="nav-item">系统设置</div>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h1 class="page-title">经营看板</h1>
+      <div class="current-date" id="currentDate"></div>
+    </header>
+
+    <div class="content">
+      <!-- KPI 卡片 -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="label">本季创收</div>
+          <div class="value">¥1,286,400</div>
+          <div class="trend up">↑ 环比 +12.6%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">在办案件</div>
+          <div class="value">186 件</div>
+          <div class="trend flat">— 较上月持平</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">客户总数</div>
+          <div class="value">2,340</div>
+          <div class="trend up">↑ 环比 +5.2%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">回款率</div>
+          <div class="value">87.3%</div>
+          <div class="trend up">↑ 环比 +3.1%</div>
+        </div>
+      </div>
+
+      <!-- 图表区域 -->
+      <div class="charts-row">
+        <!-- 近12个月创收趋势 -->
+        <div class="chart-card">
+          <div class="chart-title">近 12 个月创收趋势</div>
+          <svg class="bar-chart" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet">
+            <!-- 网格线 -->
+            <line class="grid-line" x1="40" y1="40" x2="760" y2="40"/>
+            <line class="grid-line" x1="40" y1="90" x2="760" y2="90"/>
+            <line class="grid-line" x1="40" y1="140" x2="760" y2="140"/>
+            <line class="grid-line" x1="40" y1="190" x2="760" y2="190"/>
+            <line class="grid-line" x1="40" y1="240" x2="760" y2="240"/>
+            
+            <!-- 柱子 1-12月 -->
+            <rect class="bar" x="55" y="153" width="35" height="87"/>
+            <rect class="bar" x="115" y="144" width="35" height="96"/>
+            <rect class="bar" x="175" y="133" width="35" height="107"/>
+            <rect class="bar" x="235" y="140" width="35" height="100"/>
+            <rect class="bar" x="295" y="120" width="35" height="120"/>
+            <rect class="bar" x="355" y="127" width="35" height="113"/>
+            <rect class="bar" x="415" y="113" width="35" height="127"/>
+            <rect class="bar" x="475" y="104" width="35" height="136"/>
+            <rect class="bar" x="535" y="109" width="35" height="131"/>
+            <rect class="bar" x="595" y="93" width="35" height="147"/>
+            <rect class="bar" x="655" y="100" width="35" height="140"/>
+            <rect class="bar" x="715" y="69" width="35" height="171"/>
+            
+            <!-- X轴 -->
+            <line class="axis" x1="40" y1="240" x2="760" y2="240"/>
+            
+            <!-- 月份标签 -->
+            <text class="axis-label" x="72.5" y="265">1月</text>
+            <text class="axis-label" x="132.5" y="265">2月</text>
+            <text class="axis-label" x="192.5" y="265">3月</text>
+            <text class="axis-label" x="252.5" y="265">4月</text>
+            <text class="axis-label" x="312.5" y="265">5月</text>
+            <text class="axis-label" x="372.5" y="265">6月</text>
+            <text class="axis-label" x="432.5" y="265">7月</text>
+            <text class="axis-label" x="492.5" y="265">8月</text>
+            <text class="axis-label" x="552.5" y="265">9月</text>
+            <text class="axis-label" x="612.5" y="265">10月</text>
+            <text class="axis-label" x="672.5" y="265">11月</text>
+            <text class="axis-label" x="732.5" y="265">12月</text>
+          </svg>
+        </div>
+
+        <!-- 案件状态分布 -->
+        <div class="chart-card">
+          <div class="chart-title">案件状态分布</div>
+          <div class="donut-chart-container">
+            <svg class="donut-chart" viewBox="0 0 100 100">
+              <g transform="rotate(-90 50 50)">
+                <!-- 进行中 45% 周长≈219.91 -->
+                <circle cx="50" cy="50" r="35" stroke="#3b82f6" stroke-dasharray="98.96 219.91" stroke-dashoffset="0"/>
+                <!-- 已归档 30% -->
+                <circle cx="50" cy="50" r="35" stroke="#94a3b8" stroke-dasharray="65.97 219.91" stroke-dashoffset="-98.96"/>
+                <!-- 待立案 10% -->
+                <circle cx="50" cy="50" r="35" stroke="#f59e0b" stroke-dasharray="21.99 219.91" stroke-dashoffset="-164.93"/>
+                <!-- 已结案 15% -->
+                <circle cx="50" cy="50" r="35" stroke="#10b981" stroke-dasharray="32.99 219.91" stroke-dashoffset="-186.92"/>
+              </g>
+              <text class="donut-center-text title" x="50" y="45">总案件</text>
+              <text class="donut-center-text value" x="50" y="60">412</text>
+            </svg>
+            <div class="legend">
+              <div class="legend-item">
+                <div class="left"><span class="dot" style="background:#3b82f6"></span>进行中</div>
+                <div class="percent">45% (186件)</div>
+              </div>
+              <div class="legend-item">
+                <div class="left"><span class="dot" style="background:#94a3b8"></span>已归档</div>
+                <div class="percent">30% (124件)</div>
+              </div>
+              <div class="legend-item">
+                <div class="left"><span class="dot" style="background:#f59e0b"></span>待立案</div>
+                <div class="percent">10% (41件)</div>
+              </div>
+              <div class="legend-item">
+                <div class="left"><span class="dot" style="background:#10b981"></span>已结案</div>
+                <div class="percent">15% (61件)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 最近案件表格 -->
+      <div class="table-card">
+        <div class="table-title">最近案件</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>案号</th>
+              <th>客户</th>
+              <th>案件类型</th>
+              <th>承办律师</th>
+              <th>标的额</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>(2024)京0101民初第2345号</td>
+              <td>北京星辰科技有限公司</td>
+              <td>民商事诉讼</td>
+              <td>张明远</td>
+              <td>¥2,450,000</td>
+              <td><span class="status-tag ongoing">进行中</span></td>
+            </tr>
+            <tr>
+              <td>(2024)沪0104刑初第189号</td>
+              <td>李某</td>
+              <td>刑事辩护</td>
+              <td>王淑芬</td>
+              <td>¥180,000</td>
+              <td><span class="status-tag pending">待立案</span></td>
+            </tr>
+            <tr>
+              <td>(2024)粤0305知民初第567号</td>
+              <td>深圳创新电子有限公司</td>
+              <td>知识产权</td>
+              <td>刘建国</td>
+              <td>¥5,800,000</td>
+              <td><span class="status-tag ongoing">进行中</span></td>
+            </tr>
+            <tr>
+              <td>(2023)浙0106民初第8921号</td>
+              <td>杭州绿城房地产开发有限公司</td>
+              <td>房产纠纷</td>
+              <td>陈雨晴</td>
+              <td>¥12,300,000</td>
+              <td><span class="status-tag closed">已结案</span></td>
+            </tr>
+            <tr>
+              <td>(2024)苏0102商初第342号</td>
+              <td>南京恒通贸易有限公司</td>
+              <td>合同纠纷</td>
+              <td>张伟</td>
+              <td>¥860,000</td>
+              <td><span class="status-tag ongoing">进行中</span></td>
+            </tr>
+            <tr>
+              <td>(2023)京0105民初第12345号</td>
+              <td>北京阳光传媒有限公司</td>
+              <td>法律顾问</td>
+              <td>李娜</td>
+              <td>¥350,000</td>
+              <td><span class="status-tag archived">已归档</span></td>
+            </tr>
+            <tr>
+              <td>(2024)川0107民初第789号</td>
+              <td>成都美味餐饮管理有限公司</td>
+              <td>劳动争议</td>
+              <td>赵晓峰</td>
+              <td>¥95,000</td>
+              <td><span class="status-tag closed">已结案</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// 生成当前日期
+function formatCurrentDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  return `${year}年${month}月${day}日 ${weekDays[now.getDay()]}`;
+}
+document.getElementById('currentDate').textContent = formatCurrentDate();
+</script>
+</body>
+</html>
