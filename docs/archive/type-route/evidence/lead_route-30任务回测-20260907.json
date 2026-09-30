@@ -1,0 +1,230 @@
+{
+ "total": 30,
+ "hit": 27,
+ "rate": 0.9,
+ "cases": [
+  {
+   "ok": true,
+   "title": "实现用户登录接口",
+   "expect": "code_gen",
+   "decision": "ranked",
+   "model": "minimax-m3"
+  },
+  {
+   "ok": true,
+   "title": "开发一个 Python 脚本做文件批量处理",
+   "expect": "code_gen",
+   "decision": "ranked",
+   "model": "minimax-m3"
+  },
+  {
+   "ok": true,
+   "title": "实现购物车结算功能",
+   "expect": "code_gen",
+   "decision": "ranked",
+   "model": "minimax-m3"
+  },
+  {
+   "ok": true,
+   "title": "写一个条件规则解析器",
+   "expect": "code_gen",
+   "decision": "ranked",
+   "model": "minimax-m3"
+  },
+  {
+   "ok": true,
+   "title": "审查 PR 改动是否缺少鉴权",
+   "expect": "code_audit",
+   "decision": "ranked",
+   "model": "hy3"
+  },
+  {
+   "ok": false,
+   "title": "对仓库代码做安全审计",
+   "expect": "code_audit",
+   "decision": "manual",
+   "model": null
+  },
+  {
+   "ok": false,
+   "title": "检查这段代码的越权缺陷",
+   "expect": "code_audit",
+   "decision": "ranked",
+   "model": "minimax-m3"
+  },
+  {
+   "ok": true,
+   "title": "撰写产品宣传文案",
+   "expect": "text_gen",
+   "decision": "ranked",
+   "model": "glm-5.3-flash"
+  },
+  {
+   "ok": true,
+   "title": "生成一份活动公告",
+   "expect": "text_gen",
+   "decision": "ranked",
+   "model": "glm-5.3-flash"
+  },
+  {
+   "ok": false,
+   "title": "写一篇行业分析报告",
+   "expect": "text_gen",
+   "decision": "manual",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "生成产品介绍文案",
+   "expect": "text_gen",
+   "decision": "ranked",
+   "model": "glm-5.3-flash"
+  },
+  {
+   "ok": true,
+   "title": "总结这篇文章的要点",
+   "expect": "text_understand",
+   "decision": "ranked",
+   "model": "hy3"
+  },
+  {
+   "ok": true,
+   "title": "归纳这段对话的核心意图",
+   "expect": "text_understand",
+   "decision": "ranked",
+   "model": "hy3"
+  },
+  {
+   "ok": true,
+   "title": "解读这份合同关键条款",
+   "expect": "text_understand",
+   "decision": "ranked",
+   "model": "hy3"
+  },
+  {
+   "ok": true,
+   "title": "统计本月账单并出对账报表",
+   "expect": "data_analysis",
+   "decision": "ranked",
+   "model": "hy3"
+  },
+  {
+   "ok": true,
+   "title": "数据分析：清洗这份 csv 并聚合",
+   "expect": "data_analysis",
+   "decision": "ranked",
+   "model": "hy3"
+  },
+  {
+   "ok": true,
+   "title": "对销售数据做统计分析",
+   "expect": "data_analysis",
+   "decision": "ranked",
+   "model": "hy3"
+  },
+  {
+   "ok": true,
+   "title": "生成月度经营数据报表",
+   "expect": "data_analysis",
+   "decision": "ranked",
+   "model": "hy3"
+  },
+  {
+   "ok": true,
+   "title": "设计一个经营看板页面",
+   "expect": "ui_design_tier",
+   "decision": "tier",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "前端布局调整 dashboard 界面",
+   "expect": "ui_design_tier",
+   "decision": "tier",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "做一套后台管理页面 UI",
+   "expect": "ui_design_tier",
+   "decision": "tier",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "识别这张截图的文字内容",
+   "expect": "image_tool",
+   "decision": "tool_seat",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "看图并描述图表含义",
+   "expect": "image_tool",
+   "decision": "tool_seat",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "生成一张产品海报",
+   "expect": "image_tool",
+   "decision": "tool_seat",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "用 AI 画一个 logo",
+   "expect": "image_tool",
+   "decision": "tool_seat",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "生成数据分析看板",
+   "expect": "compound",
+   "decision": "manual",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "hello world 无任何类型词",
+   "expect": "compound",
+   "decision": "manual",
+   "model": null
+  },
+  {
+   "ok": true,
+   "title": "修复登录接口 token 校验 bug",
+   "expect": "code_gen",
+   "decision": "ranked",
+   "model": "minimax-m3"
+  },
+  {
+   "ok": true,
+   "title": "修复导出功能日期格式错误",
+   "expect": "code_gen",
+   "decision": "ranked",
+   "model": "minimax-m3"
+  },
+  {
+   "ok": true,
+   "title": "修正周报模板的错别字",
+   "expect": "compound",
+   "decision": "manual",
+   "model": null
+  }
+ ],
+ "note": "dry-run 批量（零模型成本）——仅证明分类/分流；真实调用链路由单独冒烟证据覆盖",
+ "miss_analysis": [
+  "『对仓库代码做安全审计』→ compound：code_audit(审计)+code_gen(代码) 并列——v0 判定器已知边界（P8/R1 月度升级项）",
+  "『检查这段代码的越权缺陷』→ code_gen：'检查代码' 连词未命中（'检查这段代码'）——v0 判定器已知边界",
+  "『写一篇行业分析报告』→ compound：'写' 单字命中 code_gen 与 '报告' 命中 text_gen 并列——v0 判定器已知边界",
+  "结论：3 miss 均为 classify_type v0 关键词粗判边界（R1 判定器升级月度项），非 lead_route 路由缺陷；决策链 30/30 正确分流"
+ ],
+ "metrics_split": {
+  "classify_type_命中率": "27/30（3 miss = v0 关键词判定器边界，R1 月度升级项）",
+  "lead_route_分流正确率": "30/30（按既定分类结果，manual/tier/tool_seat/ranked 决策全对）",
+  "说明": "分类器质量与路由决策链是两个指标；验收线 ≥90% 针对分类（27/30 = 90% 压线）；决策链 30/30 = 100%",
+  "end_to_end_正确率": "27/30 = 90%（3 分类 miss 会端到端错路——分流正确率仅条件于分类结果，不得误读为整体 100%）"
+ }
+}

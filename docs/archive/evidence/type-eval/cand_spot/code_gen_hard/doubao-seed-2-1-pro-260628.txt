@@ -1,0 +1,115 @@
+import math
+def evaluate_rules(customer, rules):
+    class _MF(Exception): pass
+    def _tok(s):
+        toks, pos, n = [], 0, len(s)
+        while pos < n:
+            while pos <n and s[pos].isspace(): pos +=1
+            if pos >=n: break
+            c = s[pos]
+            if c.isdigit() or (c == '.' and pos+1 <n and s[pos+1].isdigit()):
+                st, dot = pos, False
+                while pos <n and (s[pos].isdigit() or (s[pos] == '.' and not dot)):
+                    if s[pos] == '.': dot = True
+                    pos +=1
+                toks.append(('NUM', float(s[st:pos]) if dot else int(s[st:pos])))
+            elif c in ('"', "'"):
+                q = c; pos +=1; st = pos
+                while pos <n and s[pos] != q: pos +=1
+                toks.append(('STR', s[st:pos])); pos +=1
+            elif pos+1 <n and s[pos:pos+2] in ('==','!=','>=','<='):
+                toks.append(('OP', s[pos:pos+2])); pos +=2
+            elif c in '><+-*/()':
+                toks.append(('OP', c)); pos +=1
+            elif c.isalpha() or c == '_':
+                st = pos
+                while pos <n and (s[pos].isalnum() or s[pos] == '_'): pos +=1
+                w = s[st:pos]
+                toks.append(('KW', w) if w in ('and','or','not') else ('ID', w))
+            else: pos +=1
+        return toks
+    def _evc(tks, c):
+        pos = [0]
+        peek = lambda: tks[pos[0]] if pos[0] < len(tks) else None
+        consume = lambda: pos.__setitem__(0, pos[0]+1)
+        def po():
+            t = peek()
+            if t[0] in ('NUM','STR'): consume(); return t[1]
+            if t[0] == 'ID':
+                consume()
+                if t[1] not in c: raise _MF()
+                return c[t[1]]
+            raise _MF()
+        def pa():
+            t = peek()
+            if t and t[0] == 'OP' and t[1] == '(':
+                consume(); v = po_r()
+                if peek() and peek()[0] == 'OP' and peek()[1] == ')': consume()
+                return v
+            l = po(); t = peek()
+            if t and t[0] == 'OP' and t[1] in ('==','!=','>','>=','<','<='):
+                op = t[1]; consume(); r = po()
+                if op == '==': return l == r
+                if op == '!=': return l != r
+                if not (isinstance(l,(int,float)) and isinstance(r,(int,float))) and type(l) != type(r): return False
+                try: return {'>':l>r,'>=':l>=r,'<':l<r,'<=':l<=r}[op]
+                except: return False
+            return bool(l)
+        def pn():
+            if peek() and peek()[0] == 'KW' and peek()[1] == 'not':
+                consume(); return not pn()
+            return pa()
+        def p_an():
+            l = pn()
+            while peek() and peek()[0] == 'KW' and peek()[1] == 'and':
+                consume(); l = l and pn()
+            return l
+        def po_r():
+            l = p_an()
+            while peek() and peek()[0] == 'KW' and peek()[1] == 'or':
+                consume(); l = l or p_an()
+            return l
+        return po_r()
+    def _eva(tks, c):
+        pos = [0]
+        peek = lambda: tks[pos[0]] if pos[0] < len(tks) else None
+        consume = lambda: pos.__setitem__(0, pos[0]+1)
+        def pf():
+            t = peek()
+            if not t: return 0
+            if t[0] == 'OP' and t[1] in '+-':
+                consume(); v = pf()
+                return v if t[1] == '+' else -v
+            if t[0] == 'OP' and t[1] == '(':
+                consume(); v = pe()
+                if peek() and peek()[0] == 'OP' and peek()[1] == ')': consume()
+                return v
+            if t[0] == 'NUM': consume(); return t[1]
+            if t[0] == 'ID':
+                consume()
+                v = c.get(t[1], 0)
+                if isinstance(v,(int,float)): return v
+                try: return float(v)
+                except: return 0
+            return 0
+        def pt():
+            l = pf()
+            while peek() and peek()[0] == 'OP' and peek()[1] in '*/':
+                op = peek()[1]; consume(); r = pf()
+                l = l*r if op == '*' else (l/r if r !=0 else 0)
+            return l
+        def pe():
+            l = pt()
+            while peek() and peek()[0] == 'OP' and peek()[1] in '+-':
+                op = peek()[1]; consume(); r = pt()
+                l = l + r if op == '+' else l - r
+            return l
+        return pe()
+    for r in rules:
+        try: hit = _evc(_tok(r['cond']), customer)
+        except _MF: hit = False
+        if hit:
+            p = r['action']['points']
+            v = _eva(_tok(p), customer) if isinstance(p, str) else p
+            return {'points': int(math.floor(float(v)))}
+    return None

@@ -1,0 +1,17 @@
+7 高 SQL拼接构造导致注入与格式化异常：直接对fee字段做字符串格式化且note未转义，输入含引号或%会导致语法错误/注入；应改用参数化查询 db_conn.execute("INSERT INTO fees (customer_id, amount, note) VALUES (?, ?, ?)", (fee["customer_id"], fee["amount"], fee["note"]))。
+
+22 高 取余额时健壮性不足：未判断fetchone()返回None（客户不存在）且默认sqlite游标返回tuple，使用row["balance"]必抛异常；应先判断row is None并返回错误，并改用row[0]或设置row_factory。
+
+25 中 余额调整逻辑错误：条件balance == 0.0会导致客户余额为0时无法执行正向充值（delta>0被误判为无需调整）；应仅当delta == 0.0时返回无需调整，去掉对balance的零值判断。
+
+34 中 导出文件未关闭：open后无with或close，异常时句柄泄露且CSV数据可能未刷盘；应使用with open(out_path, "w", encoding="utf-8", newline="") as f上下文管理器。
+
+45 中 异常被静默吞掉：except Exception: pass未记录日志，违背“记录日志后继续”需求，且遇DB错误未rollback会导致后续导入全部失败；应记录日志并在必要时db_conn.rollback()。
+
+44 低 批量导入调用传参错误：将{"customer_id": -1}作为user传入submit_fee，若后续加入权限校验会出错；应传入真实user或清理函数签名。
+
+10 中 审批/提交缺少权限校验：approve_fee与submit_fee均未使用user参数校验操作人权限与数据归属，存在越权风险；应增加权限与归属校验。
+
+33 低 导出使用SELECT *：与硬编码表头列数/顺序可能不一致；建议显式指定SELECT列名以保证CSV结构稳定。
+
+8 中 submit_fee未提交事务：INSERT后未db_conn.commit()，在批量导入之外单独调用时改动不会持久化，事务边界不一致；建议明确提交策略或在函数内提交。

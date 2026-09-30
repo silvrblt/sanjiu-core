@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "errors-ledger.jsonl 错误模式库（每行一对象，MECH-09 12 字段）",
+  "type": "object",
+  "required": ["id", "title", "pattern", "scope", "severity", "count", "status", "source_refs", "decision_ref", "updated_at", "version"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^PM-\\d+$"},
+    "title": {"type": "string", "minLength": 2},
+    "pattern": {"type": "string", "minLength": 5},
+    "scope": {"type": "string"},
+    "severity": {"enum": ["low", "medium", "high"]},
+    "count": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["active", "solidified", "retired"]},
+    "source_refs": {"type": "string", "minLength": 3},
+    "evidence_hash": {"type": "string"},
+    "decision_ref": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "version": {"type": "integer", "minimum": 1}
+  }
+}

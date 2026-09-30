@@ -1,0 +1,336 @@
+# 三审九方模型配置 —— task-router 唯一模型源
+#
+# 事实源：docs/三审九方机制方案-v5-2026-08-13.md（PR #100 合入前位于
+#         ws/docs/sanjiu-v5 分支；本文件按 v5 §3/§8 落地）。
+# 用途：tools/task-router.py 分派/调度/抽审/评级/成本台账统一读取本文件，
+#       不另设模型清单，避免配置漂移。
+#
+# 字段说明：
+#   seat   席位键（router 内部 ID）：<审级>_<role>；role ∈ lead/antagonist/judge
+#   stage  审级 1/2/3
+#   role   席位角色：lead=承办/承办审计，antagonist=对抗审计，judge=裁决
+#   model  首选模型标识（台账/展示用标签，如 hunyuan-hy3）
+#   api_model  传给 CLI --model 的真实 API 服务 ID（如 hy3；与 HUNYUAN_MODEL/
+#              GLM_MODEL/KIMI_MODEL 环境变量对齐）；缺省回退 model
+#   cli    调用命令：session=当前 Codex 会话（不发起外部调用）；其余为现有桥接 CLI
+#   connected  已接=true；仅留桥接接口与配置位=false（pending 标注）
+#   enabled    是否在默认调度中启用（false=配置位已留，接通后改 true 即生效）
+#   price  ¥/百万 token 输入/输出单价（v5 §3 口径；任务级估算见方案 §6.1）
+#   alternates  备选链（按顺序降级；同厂/异厂灾备见方案 §3.2）
+#
+# 硬底线（router 有代码断言）：同一任务 承办与对抗审计必须异模型实例；
+# 同厂同系列禁同审级；裁决与承办同厂需盲测（每月 3 例）。
+#
+# 已接（MECH-03 v8 定稿矩阵，2026-08-16 终裁）：hunyuan-audit（一审对抗）/
+#       minimax-audit（一审裁决）/ doubao-audit（二审承办）/ deepseek-audit（二审对抗）/
+#       kimi（二审裁决 kimi-k2.7-code、三审裁决 kimi-k3）/ glm-audit（三审承办）/
+#       qwen-text-audit（三审对抗）——冒烟与 §3.2 盲测记录见 tools/blind-tests.md
+# 待接（connected=false）：doubao-2.1-pro / minimax-m2 / qwen3.5-max /
+#       kimi-k2 / glm-5.1——配置位已留，接通后按 §3.2 补盲测记录并 flip enabled。
+
+version: 4
+updated_at: "2026-09-06"  # Q3 2026-09-06：P3 ui_design_tiers 结构化 / P4 image_gen 标识统一 / T11 注记清理（v3.7.x 期间 2026-09-05 为 ui_design 终裁）
+
+# ---- 立案庭类型路由（2026-09-04 v5 定稿实施；候选池价格核验 v4 全 ✓ verbatim）----
+task_types:
+  # 核心 8 类（首版落地）；扩展类按需（文本校对/翻译/重构/调试/3D/动效/排版/ETL/可视化）
+  core: [text_gen, text_understand, code_gen, code_audit, ui_design, image_understand, image_gen, data_analysis]
+  extended: [text_proof, translation, code_refactor, code_debug, design_3d, design_motion, layout, etl, visualization]
+
+candidate_pool:
+  # 价格核验 v4（17 项 ✓ verbatim，evidence/候选池价格核验-20260903.md）；价格 = 输入/输出（元/百万 token）
+  # 调用选择优先级（R4 需求原文）：①合规异厂 → ②类型专项测评达标 → ③输入价最低 → ④同价档性价比（0.7×达标度+0.3×价优度）
+  # 【Q3 2026-09-06 降级标注】route_task v1.2.x 消费层实现：①②③ + ④降级为 ±10% 同价档内按 price_out 升序
+  #   （yaml 无达标度数值字段，原公式不可复现；月度补测补 verified_models 达标度字段后恢复原公式）
+  # 2026-09-04 基准层测评校准（两批 6 类型×8 席；达标线=自动验收；双盲复核后置，<6.0 回改）
+  # ui_design 生成分工（2026-09-05 决策人终裁，证据 docs/evidence/type-eval/ui_design-三模型分工定稿-20260905.md）：
+  #   T1 主力 minimax-m3(+qwen 风格基线注入,≈¥0.08/页) 70% / T2 质感 qwen3.8-max(直出,≈¥0.50) 20%
+  #   / T3 平价替身 glm-5.3(+基线,≈¥0.35) 10%；hy3/doubao 已移出 ui_design；风格基线资产 style-transfer/
+  #   2026-09-05 v2 低饱和修订（决策人纠正）：minimax 生产调用必须带 thinking:{"type":"disabled"}（实测 6.1k out 完整页 vs 思考开 40k+ 截断）
+
+  # 推荐类型 = 测评达标资格（证据：docs/evidence/type-eval/达标度汇总-20260904.md + 各 task 结果 md）
+  ui_design_tiers:  # 决策人 2026-09-05 终裁生产分工（消费层 ui_design 决策源；P3 2026-09-06 从代码常量结构化入库）
+    - {tier: T1, usage: 常规看板/中后台页/内部工具页（高频）, model: minimax-m3, share: 0.7,
+       style: 注入 qwen 风格基线 + thinking:disabled + max_tokens 28000, cost_per_page_yuan: 0.08, note: 终裁 T1 主力}
+    - {tier: T2, usage: 对外门面/客户演示/汇报页（低频）, model: qwen3.8-max, share: 0.2,
+       style: 直出 + 提示词要求内容密度（短板：下半页留白）, cost_per_page_yuan: 0.5, note: 终裁 T2 质感}
+    - {tier: T3, usage: T2 预算敏感替代 / qwen 排队降级, model: glm-5.3, share: 0.1,
+       style: 注入风格基线 + 明确要求数据模块完整度（短板：数据模块单薄）, cost_per_page_yuan: 0.35, note: 终裁 T3 平价替身}
+  verified_models:
+    - {model: glm-5.3-flash, price_in: 0.8, price_out: 2.8, cache: 0.23, vendor: zhipu, note: 5折至9/10, types: [text_gen, image_understand]}
+    - {model: hy3, price_in: 1.0, price_out: 4.0, cache: 0.25, vendor: tencent, types: [code_audit, text_gen, text_understand, data_analysis], note: "code_gen 双盲回改移出(ast 违规)；ui_design 决策人终裁抛弃(2026-09-05)"}
+    - {model: deepseek-v4-flash, price_in: 1.5, price_out: 4.5, cache: 0.05, vendor: deepseek, note: 空闲价，高峰3/9, types: [code_audit, data_analysis, ui_design]}
+    - {model: minimax-m2.1, price_in: 2.1, price_out: 8.4, cache: 0.21, vendor: minimax, types: [], note: "TU 抽测未达标(6/7+3 超长)移出，待月度复测"}
+    - {model: minimax-m3, price_in: 2.1, price_out: 8.4, cache: 0.42, vendor: minimax, types: [code_gen, code_audit, text_understand, data_analysis, ui_design]}
+    - {model: doubao-2.1-turbo, price_in: 3.0, price_out: 15.0, cache: 0.6, vendor: doubao, types: [code_gen, code_audit, text_gen, text_understand, data_analysis], note: "ui_design 决策人终裁抛弃(2026-09-05)"}
+    - {model: deepseek-v4-pro, price_in: 4.5, price_out: 13.5, cache: 0.15, vendor: deepseek, note: 空闲价，高峰9/27, types: [code_audit, text_gen, text_understand, data_analysis, ui_design]}
+    - {model: hy4-preview, price_in: 6.0, price_out: 18.0, cache: 0.3, vendor: tencent, types: [text_understand], note: "2026-09-04 抽测 ✓(7/7 达标)"}
+    - {model: kimi-k2.7-code, price_in: 6.5, price_out: 27.0, cache: 1.3, vendor: moonshot, types: [code_gen, code_audit, text_gen, text_understand, data_analysis, ui_design]}
+    - {model: kimi-k2.6, price_in: 6.5, price_out: 27.0, cache: 1.1, vendor: moonshot, types: [image_understand]}
+    - {model: glm-5.3, price_in: 8.0, price_out: 28.0, cache: 2.0, vendor: zhipu, types: [code_audit, text_gen, text_understand, data_analysis, ui_design]}
+    - {model: qwen3-max, price_in: 2.5, price_out: 10.0, cache: null, vendor: aliyun, note: 32K档, types: [text_gen]}
+    - {model: doubao-seed-2.1-pro, price_in: 6.0, price_out: 30.0, cache: 1.2, vendor: doubao, types: [code_gen, text_gen], note: "2026-09-04 抽测 ✓(code_gen_hard 9/9, text_gen 228字7/7)"}
+    - {model: qwen3.8-max, price_in: 12.0, price_out: 36.0, cache: null, vendor: aliyun, types: [code_audit, text_gen, text_understand, data_analysis, ui_design]}
+    - {model: kimi-k2.7-code-highspeed, price_in: 13.0, price_out: 54.0, cache: 2.6, vendor: moonshot, types: [code_gen]}
+    - {model: kimi-k3, price_in: 20.0, price_out: 100.0, cache: 2.0, vendor: moonshot, types: [code_audit]}
+    - {model: doubao-seedream-4-0-250828, price_per_image: 0.3, vendor: ark, types: [image_gen], note: "标识与 tool_seats/ark-image 统一（P4 2026-09-06）"}
+
+seats_pool:
+  # 席位候选池（每席 ≥2，类型推荐初判待测评校准；同厂同审级预筛异厂）
+  l1_lead: {candidates: [deepseek-v4-flash, glm-5.3-flash, doubao-2.1-turbo], primary: deepseek-v4-flash, note: 1主2备（通用+文本/长文）}
+  l1_antagonist: {candidates: [hy3, minimax-m2.1, glm-5.3-flash], primary: hy3}
+  l1_judge: {candidates: [minimax-m3, doubao-2.1-turbo], primary: minimax-m3}
+  l2_lead: {candidates: [doubao-2.1-turbo, glm-5.3-flash], primary: doubao-2.1-turbo}
+  l2_antagonist: {candidates: [deepseek-v4-pro, kimi-k2.6], primary: deepseek-v4-pro}
+  l2_judge: {candidates: [kimi-k2.7-code, minimax-m3], primary: kimi-k2.7-code}
+  l3_lead: {candidates: [glm-5.3, kimi-k2.7-code], primary: glm-5.3}
+  l3_antagonist: {candidates: [qwen3.8-max, glm-5.3], primary: qwen3.8-max}
+  l3_judge: {candidates: [kimi-k3, qwen3.8-max], primary: kimi-k3}
+  vision_read: {candidates: [glm-5.3-flash, kimi-k2.6], primary: glm-5.3-flash}
+  image_gen: {candidates: [doubao-seedream-4-0-250828], primary: doubao-seedream-4-0-250828}
+
+
+defaults:
+  timeout_sec: 180            # 外部 CLI 单次调用超时
+  # cost-opt B4 峰谷错峰（2026-09-01 官方核验，证据：cost-opt/docs/evidence/峰谷时段核验-20260901.md）
+  peak_hours:                 # 高峰 = 周一至周五 9-12/14-18（北京时间）；空闲价 = 高峰一半
+    - "Mon-Fri 09:00-12:00"
+    - "Mon-Fri 14:00-18:00"
+  random_rate_l2: 0.5         # §4.2 随机抽审 50%（cost-opt A1：过渡期保持原值，14 天实测回填后切 0.2）
+  floor_l2: 0.7               # §4.2 总体介入 ≥70%（不足时随机补足到该下限；回填后随 random_rate_l2 同步调整）
+  # cost-opt A1 抽审动态化配置位（2026-09-01 加入，冻结态：只记录不触发，14 天实测回填后启用）
+  # 依据：cost-opt 需求文档 v7 R4（M3 终裁保底 20%）+ 执行方案拆解稿 v4
+  audit_dynamic:
+    enabled: false            # 冻结态；回填（p/一致率/拦截率基线）后置 true
+    base_rate_l2: 0.2         # M3 终裁随机保底率（终裁 2026-09-01）
+    f1_categories:            # 强制三审清单（AGENTS.md §二 规则③，5 项，"四类"为历史称谓）
+      - external_delivery    # 对外交付
+      - finance_legal        # 资金财务
+      - legal_compliance     # 法律合规
+      - security_vuln        # 安全漏洞
+      - framework_change     # 基础框架变更
+    escalate_rate: 0          # 主观提级率（冻结，14 天实测回填）
+    consistency_watch:        # 防"庸俗一致"（冻结期只记录）
+      warn_pct: 85
+      escalate_pct: 92        # 临时上调提级率至 30% 一周
+    intercept_breaker:        # 质量熔断（连续两周拦截率 >25% 回退固定 50% 抽审）
+      max_intercept_pct: 25
+      weeks: 2
+  third_random_enabled: false # §4.3 三审随机 30% 默认关闭（高风险周/决策人开关）
+  third_random_rate: 0.3      # §4.3 随机抽审二审 30%
+  rating_threshold: 60        # §5 评级阈值（满分 100），低于阈值计低分
+  consecutive_low_hint: 3     # §5 连续 3 次低于阈值 → 提示更换模型
+  third_reverse_raise: true   # §5 反向评级（低审级评三审低分）强制升人工终局
+
+seats:
+  l1_lead:
+    name: 一审·承办
+    stage: 1
+    role: lead
+    model: deepseek-v4-flash  # 2026-09-03 盲测终审回切：通用域 kimi 评分 7.88 vs 7.31 + 法律领域实测 -11.7pct + reasoning 实付高 19 倍——三证合一；GLM-flash 转文风/读图/候选（9/2 切换为 T1 试验，已终结）
+    api_id: deepseek-v4-flash  # 真实厂商 API ID（网关调用用；单源）
+    cli: session
+    connected: true
+    enabled: true
+    price: {in: 1.5, out: 4.5}  # 8/17 起空闲档；高峰 3/9（2026-08-16 官方核验）
+    bridge: {ttft: 180, heartbeat: 300, max_duration: 1800}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
+    max_tokens: 16384  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
+    stream: true  # bridge_core 统一流式（2026-08-31 换芯）
+    auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
+    budget_hardcap: 10  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
+    price_cache: 0.5  # DS 缓存命中价（8/31 前官方核验）
+    alternates: []
+    note: MECH-03 v8 定稿：Flash 一审承办（当前会话）；2026-08-17 起峰谷：空闲 1.5/4.5、高峰 3/9
+  l1_antagonist:
+    name: 一审·对抗审计
+    stage: 1
+    role: antagonist
+    model: hunyuan-hy3
+    api_id: hy3  # 真实厂商 API ID（网关调用用；单源，2026-08-15 一审裁决 A）
+    cli: hunyuan-audit
+    connected: true
+    enabled: true
+    price: {in: 1, out: 4}
+    bridge: {ttft: 180, heartbeat: 300, max_duration: 1800}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
+    max_tokens: 16384  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
+    stream: true  # bridge_core 统一流式（2026-08-31 换芯）
+    auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
+    budget_hardcap: 10  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
+    price_cache: 0.25  # 混元官方缓存命中价（2026-08-15 联网核验）
+    alternates: []
+    note: 价格序重排：混元 Hy3（输入 1）任一审对抗，审计高频用低价模型
+  l1_judge:
+    name: 一审·裁决
+    stage: 1
+    role: judge
+    model: minimax-m3
+    api_id: MiniMax-M3  # 真实厂商 API ID（网关调用用；单源，2026-08-15 一审裁决 A）
+    cli: minimax-audit
+    connected: true
+    enabled: true
+    price: {in: 2.1, out: 8.4}  # 官方永久五折；原价 4.2/16.8（2026-08-16 官方核验）
+    bridge: {ttft: 180, heartbeat: 300, max_duration: 1800}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
+    max_tokens: 16384  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
+    stream: true  # bridge_core 统一流式（2026-08-31 换芯）
+    auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
+    budget_hardcap: 10  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
+    alternates: []
+    note: MECH-03 v8 定稿：MiniMax M3 一审裁决（2.1/8.4 永久五折）；旧值 3/6 作废
+  l2_lead:
+    name: 二审·承办审计
+    stage: 2
+    role: lead
+    model: doubao-2.1-turbo
+    api_id: doubao-seed-2-1-turbo-260628  # 真实厂商 API ID（网关调用用；单源，2026-08-15 一审裁决 A）
+    cli: doubao-audit
+    connected: true
+    enabled: true
+    price: {in: 3, out: 15}
+    bridge: {ttft: 180, heartbeat: 300, max_duration: 1800}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
+    max_tokens: 16384  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
+    stream: true  # bridge_core 统一流式（2026-08-31 换芯）
+    auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
+    budget_hardcap: 10  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
+    alternates: []
+    note: 价格序重排：豆包（输入 3）任二审承办审计；doubao-audit chat
+  l2_antagonist:
+    name: 二审·对抗审计
+    stage: 2
+    role: antagonist
+    model: deepseek-v4-pro
+    api_id: deepseek-v4-pro  # 真实厂商 API ID（网关调用用；单源，2026-08-15 一审裁决 A）
+    cli: deepseek-audit
+    connected: true
+    enabled: true
+    price: {in: 4.5, out: 13.5}  # 8/17 起空闲档；高峰 9/27（2026-08-16 官方核验）
+    bridge: {ttft: 180, heartbeat: 300, max_duration: 1800}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
+    max_tokens: 16384  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
+    stream: true  # bridge_core 统一流式（2026-08-31 换芯）
+    auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
+    budget_hardcap: 10  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
+    alternates: []
+    note: MECH-03 v8 定稿：DS V4 Pro 二审对抗（4.5/13.5；高峰 9/27）；与 l2_lead 豆包异厂
+  l2_judge:
+    name: 二审·裁决
+    stage: 2
+    role: judge
+    model: kimi-k2.7-code
+    api_id: kimi-k2.7-code  # 普通版（--model kimi-k2.7-code）；原 HighSpeed 13/54 弃用（2026-08-16 官方核验）
+    cli: kimi
+    connected: true
+    enabled: true
+    price: {in: 6.5, out: 27}  # 普通版，临时；冷备 M3→Hy3→Flash
+    bridge: {ttft: 180, heartbeat: 300, max_duration: 1800}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
+    max_tokens: 32768  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
+    stream: true  # bridge_core 统一流式（2026-08-31 换芯）
+    auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
+    budget_hardcap: 15  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
+    alternates: []
+    note: MECH-03 v8 定稿：Kimi K2.7 Code 普通版二审裁决（6.5/27，临时）；原表 4/16 严重错误弃用
+  l3_lead:
+    name: 三审·承办审计
+    stage: 3
+    role: lead
+    model: glm-5.3
+    api_id: glm-5.3  # 真实厂商 API ID（网关调用用；单源，2026-08-15 一审裁决 A）
+    cli: glm-audit
+    connected: true
+    enabled: true
+    price: {in: 8, out: 28}  # 官方价；原表输出 24 有误（2026-08-16 官方核验）
+    bridge: {ttft: 180, heartbeat: 300, max_duration: 7200}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
+    max_tokens: 16384  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
+    stream: true  # bridge_core 统一流式（2026-08-31 换芯）
+    auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
+    budget_hardcap: 15  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
+    alternates: []
+    note: MECH-03 v8 定稿：GLM-5.3 三审承办（8/28）；GLM-4.7-Flash 免费版全渠道弃用（T11 2026-09-06：原注记误写 GLM-5.2，已改）
+  l3_antagonist:
+    name: 三审·对抗审计
+    stage: 3
+    role: antagonist
+    model: qwen3.8-max
+    api_id: qwen3.8-max  # 真实厂商 API ID（网关调用用；单源，2026-08-15 一审裁决 A）
+    cli: qwen-text-audit
+    connected: true
+    enabled: true
+    price: {in: 12, out: 36}  # 2026-08-16 官方核验
+    bridge: {ttft: 180, heartbeat: 300, max_duration: 7200}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
+    max_tokens: 16384  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
+    stream: true  # bridge_core 统一流式（2026-08-31 换芯）
+    auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
+    budget_hardcap: 20  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
+    alternates: []
+    note: MECH-03 v8 定稿：Qwen3.8 Max 三审对抗（12/36）
+  l3_judge:
+    name: 三审·裁决
+    stage: 3
+    role: judge
+    model: kimi-k3
+    api_id: kimi-k3  # 真实厂商 API ID（网关调用用；单源，2026-08-15 一审裁决 A）
+    cli: kimi
+    connected: true
+    enabled: true
+    price: {in: 20, out: 100}  # 官方价；原表 4/16 严重错误（2026-08-16 官方核验）
+    bridge: {ttft: 180, heartbeat: 300, max_duration: 7200}  # bridge_core 三段时间窗（秒）；heartbeat 待七厂商实测校准
+    max_tokens: 32768  # bridge_core 输出上限（K3/K2.7 32768 防 reasoning 截断；其余 16384）
+    stream: true  # bridge_core 统一流式（2026-08-31 换芯）
+    auto_retry: {rate_limit: 3, truncation: 2}  # bridge_core 429 退避/截断自愈次数
+    budget_hardcap: 30  # dsh-audit 单任务成本硬顶（¥）；超限需 budget_override 承办确认
+    alternates: []
+    note: MECH-03 v8 定稿：Kimi K3 三审裁决（20/100，全矩阵最贵→低频）；禁止日常生成与常规审计
+
+level_price_bands: # v5 §3.1 阶梯验证口径（¥/M 估算区间，与 §3 席位单价口径隔离）
+  L1: "1-15"
+  L2: "4-36"
+  L3: "10-50+"
+  note: "区间为方案口径（三审含估算上限）；实际以各席位 price 与首月账单校准为准，
+    勿用区间反推席位单价"
+
+notes:
+  pending_connect: "2026-08-14 五席 flip enabled（历史：doubao 一审裁决 / minimax
+    二审承办 / qwen 二审对抗 / kimi-k2.7 二审裁决 / glm-5.3 三审对抗）；
+    冒烟与 §3.2 同厂盲测记录见 tools/blind-tests.md（主机名/环境/命令/日期
+    可复核），评级与抽审随 router cron 生效"
+  failover: "外部 CLI 失败时按 alternates 顺序降级；全链失败则该席位标记失败，
+    由 router 输出升级/人工提示，不静默吞错"
+
+tool_seats: # 工具席位：不参与三审程序，router 分派/审计/裁决逻辑不消费（验证忽略）
+  # 视觉验收流 v1（决策人 2026-08-15 拍板）：L1 内部素材回读自检 / L2 对外交付素材
+  # 并入所在交付物三审证据包 / L3 高影响读图双证据强制；见 AGENTS.md §10C 与机制包 07。
+  vision_read:
+    name: 视觉专属席·读图
+    role: tool
+    model: glm-5.3-flash  # 决策人 T1 拍板 2026-09-02：视觉初审全线替换（实测四数字与基线一致，2026-09-02 附录 C）
+    cli: glm-vision  # read <图> "<问题>"（默认模型 glm-5.3-flash；失败升级 kimi-k3 不变）
+    connected: true
+    enabled: true
+    price: {in: 0.8, out: 2.8}  # T11 2026-09-06 修正：随 9/2 模型切换同步 glm-5.3-flash 价（原残留 ds-v4-flash-vision-exp 的 1.5/4.5）
+    price_cache: 0.23
+    alternates: [kimi-k3]
+  video_read:
+    name: 视觉专属席·视频理解
+    role: tool
+    model: glm-5.3-flash
+    cli: glm-vision
+    connected: true
+    enabled: true
+    price: {in: 0.8, out: 2.8}
+    price_cache: 0.23
+    note: |
+      视频/图片多模态理解（Ox Alpha 2026-08-26 智谱官方认领；1M 上下文；UI 动效复现/验收证据用；不走三审程序；成本独立记账；2026-08-27 联网核验）。
+      官方价口径（Q9 2026-09-06 对齐字段）：输入 0.8/输出 2.8（¥/M，与 price 字段一致），缓存命中 0.23（与 price_cache 一致）；华北2北京 Batch 0.4/1、RPM 1200/TPM 100 万（2026-08-15 核验）；读图失败升级 kimi-k3；GLM-4.6V-Flash/4.7-Flash 免费视觉弃用不恢复。
+      历史注记（T11 合并去重）：读图默认曾为 ds-v4-flash-vision-exp（2026-08-24 拍板）/qwen-vl-plus（更早弃用）——2026-09-02 决策人 T1 全线替换 glm-5.3-flash，vision_read/video_read 以 model 字段为准；注意 model=qwen-vl-plus 是 API 模型 ID、cli=qwen-vision 是桥接命令名（同 hunyuan-hy3 模型 ID + hunyuan-audit 命令名同构），二者不同维度不冲突
+  image_gen:
+    name: 视觉专属席·文生图
+    role: tool
+    model: doubao-seedream-4-0-250828  # 2026-09-03 决策人盲选选定主力（cogview/wanx 两家否决）
+    api_id: doubao-seedream-4-0-250828  # 火山方舟 ARK（ark.cn-beijing.volces.com）
+    cli: ark-image
+    connected: true
+    enabled: true
+    price: {per_image: 0.3}
+    alternates: [cogview-4-250304]  # 冷备（决策人否决但保链路；qwen-image/wanx 系弃用）
+    note: 2026-09-03 决策人盲选：seedream-4.0 够格选定主力（ARK_API_KEY 已有，0.3 元/张级）；
+          cogview-4 与 wanx2.1 均被决策人否决（盲测"都挺垃圾"）；密钥 ARK_API_KEY；
+          成本独立记账（视觉场景专款专用）；生成前先查目标文件避免重复计费；
+          模型只生成不理解，不参与审计裁决

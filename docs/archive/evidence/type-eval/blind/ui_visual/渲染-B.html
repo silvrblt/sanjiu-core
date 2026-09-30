@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>律所经营中后台 - 经营看板</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    background: #f1f5f9;
+    color: #1e293b;
+    display: flex;
+    min-height: 100vh;
+  }
+  .sidebar {
+    width: 240px;
+    background: #0f172a;
+    color: #cbd5e1;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    padding: 24px 0;
+  }
+  .brand {
+    padding: 0 24px 32px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+  .nav-item {
+    display: block;
+    padding: 14px 24px;
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 15px;
+    border-left: 3px solid transparent;
+    transition: all .2s;
+    cursor: pointer;
+  }
+  .nav-item:hover, .nav-item.active {
+    background: #1e293b;
+    color: #fff;
+    border-left-color: #3b82f6;
+  }
+  .main {
+    flex: 1;
+    padding: 28px 32px;
+    min-width: 0;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+  }
+  .page-header h1 {
+    font-size: 28px;
+    margin: 0;
+    font-weight: 700;
+  }
+  .current-date {
+    color: #64748b;
+    font-size: 15px;
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 1200px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .section-grid { grid-template-columns: 1fr !important; }
+  }
+  @media (max-width: 768px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    body { flex-direction: column; }
+    .sidebar { width: 100%; }
+    .main { margin-left: 0; }
+  }
+  .kpi-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .kpi-label {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 10px;
+  }
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 8px;
+  }
+  .kpi-trend {
+    font-size: 13px;
+    color: #10b981;
+    font-weight: 600;
+  }
+  .kpi-trend.down { color: #ef4444; }
+  .kpi-sub {
+    font-size: 13px;
+    color: #94a3b8;
+  }
+  .section-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 18px;
+    color: #0f172a;
+  }
+  .trend-chart svg {
+    width: 100%;
+    height: 300px;
+    display: block;
+  }
+  .axis { stroke: #e2e8f0; stroke-width: 1; }
+  .axis-text { fill: #64748b; font-size: 12px; }
+  .line { fill: none; stroke: #3b82f6; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .area { fill: rgba(59,130,246,0.12); stroke: none; }
+  .point { fill: #3b82f6; stroke: #fff; stroke-width: 2; }
+  .donut-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .donut-chart svg {
+    width: 200px;
+    height: 200px;
+    display: block;
+  }
+  .donut-bg { fill: none; stroke: #e2e8f0; stroke-width: 22; }
+  .donut-segment { fill: none; stroke-width: 22; }
+  .donut-legend {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    min-width: 120px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    margin-bottom: 10px;
+    color: #334155;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+  .legend-value { margin-left: auto; padding-left: 16px; color: #64748b; }
+  .table-card { margin-top: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left;
+    padding: 14px 12px;
+    color: #64748b;
+    font-weight: 600;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+  tr:last-child td { border-bottom: none; }
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-blue { background: #eff6ff; color: #2563eb; }
+  .badge-green { background: #ecfdf5; color: #059669; }
+  .badge-orange { background: #fff7ed; color: #d97706; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">律所经营中后台</div>
+    <nav>
+      <a class="nav-item active">案件管理</a>
+      <a class="nav-item">客户管理</a>
+      <a class="nav-item">财务管理</a>
+      <a class="nav-item">系统设置</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <header class="page-header">
+      <h1>经营看板</h1>
+      <div class="current-date" id="currentDate"></div>
+    </header>
+
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">本季创收</div>
+        <div class="kpi-value">¥1,286,400</div>
+        <div class="kpi-trend">环比 +12.6%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">在办案件</div>
+        <div class="kpi-value">186</div>
+        <div class="kpi-sub">件</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">客户总数</div>
+        <div class="kpi-value">2,340</div>
+        <div class="kpi-sub">位</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">回款率</div>
+        <div class="kpi-value">87.3%</div>
+        <div class="kpi-trend">环比 +3.1%</div>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div class="card">
+        <div class="card-title">近 12 个月创收趋势</div>
+        <div class="trend-chart">
+          <svg id="revenueChart"></svg>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">案件状态分布</div>
+        <div class="donut-wrap">
+          <div class="donut-chart">
+            <svg id="statusChart"></svg>
+          </div>
+          <ul class="donut-legend" id="statusLegend"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card table-card">
+      <div class="card-title">最近案件</div>
+      <table>
+        <thead>
+          <tr>
+            <th>案号</th>
+            <th>客户</th>
+            <th>案件类型</th>
+            <th>承办律师</th>
+            <th>标的额</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>2024-CL-0089</td>
+            <td>张三</td>
+            <td>合同纠纷</td>
+            <td>李律师</td>
+            <td>¥860,000</td>
+            <td><span class="badge badge-blue">进行中</span></td>
+          </tr>
+          <tr>
+            <td>2024-CL-0092</td>
+            <td>蓝海科技</td>
+            <td>知识产权</td>
+            <td>王律师</td>
+            <td>¥1,200,000</td>
+            <td><span class="badge badge-gray">已归档</span></td>
+          </tr>
+          <tr>
+            <td>2024-CL-0095</td>
+            <td>陈某</td>
+            <td>劳动争议</td>
+            <td>赵律师</td>
+            <td>¥150,000</td>
+            <td><span class="badge badge-green">已结案</span></td>
+          </tr>
+          <tr>
+            <td>2024-CL-0101</td>
+            <td>恒信地产</td>
+            <td>股权纠纷</td>
+            <td>刘律师</td>
+            <td>¥3,500,000</td>
+            <td><span class="badge badge-blue">进行中</span></td>
+          </tr>
+          <tr>
+            <td>2024-CL-0104</td>
+            <td>孙女士</td>
+            <td>婚姻家事</td>
+            <td>周律师</td>
+            <td>¥800,000</td>
+            <td><span class="badge badge-orange">待立案</span></td>
+          </tr>
+          <tr>
+            <td>2024-CL-0108</td>
+            <td>大运物流</td>
+            <td>交通事故</td>
+            <td>吴律师</td>
+            <td>¥420,000</td>
+            <td><span class="badge badge-green">已结案</span></td>
+          </tr>
+          <tr>
+            <td>2024-CL-0112</td>
+            <td>金石投资</td>
+            <td>债权债务</td>
+            <td>郑律师</td>
+            <td>¥2,100,000</td>
+            <td><span class="badge badge-blue">进行中</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    document.getElementById('currentDate').textContent =
+      new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+
+    function buildLineChart(svgId, data) {
+      const svg = document.getElementById(svgId);
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      const width = 800, height = 300;
+      const pad = { top: 40, right: 30, bottom: 40, left: 60 };
+      const chartW = width - pad.left - pad.right;
+      const chartH = height - pad.top - pad.bottom;
+      const max = Math.max(...data);
+      const yMax = Math.ceil(max / 20) * 20 || 100;
+
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+      const steps = 5;
+      for (let i = 0; i <= steps; i++) {
+        const y = pad.top + chartH * (i / steps);
+        const val = yMax * (1 - i / steps);
+        const line = document.createElementNS(svgNS, 'line');
+        line.setAttribute('x1', pad.left);
+        line.setAttribute('x2', width - pad.right);
+        line.setAttribute('y1', y);
+        line.setAttribute('y2', y);
+        line.setAttribute('class', 'axis');
+        if (i > 0) line.setAttribute('stroke-dasharray', '4 4');
+        svg.appendChild(line);
+
+        const text = document.createElementNS(svgNS, 'text');
+        text.setAttribute('x', pad.left - 10);
+        text.setAttribute('y', y + 4);
+        text.setAttribute('text-anchor', 'end');
+        text.setAttribute('class', 'axis-text');
+        text.textContent = val;
+        svg.appendChild(text);
+      }
+
+      const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+      const points = [];
+      data.forEach((v, i) => {
+        const x = pad.left + (i / (data.length - 1)) * chartW;
+        const y = pad.top + chartH - (v / yMax) * chartH;
+        points.push(`${x},${y}`);
+
+        const label = document.createElementNS(svgNS, 'text');
+        label.setAttribute('x', x);
+        label.setAttribute('y', height - 10);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('class', 'axis-text');
+        label.textContent = months[i];
+        svg.appendChild(label);
+      });
+
+      const firstX = pad.left;
+      const lastX = width - pad.right;
+      const bottomY = height - pad.bottom;
+      const areaPoints = `${firstX},${bottomY} ` + points.join(' ') + ` ${lastX},${bottomY}`;
+      const polygon = document.createElementNS(svgNS, 'polygon');
+      polygon.setAttribute('points', areaPoints);
+      polygon.setAttribute('class', 'area');
+      svg.appendChild(polygon);
+
+      const polyline = document.createElementNS(svgNS, 'polyline');
+      polyline.setAttribute('points', points.join(' '));
+      polyline.setAttribute('class', 'line');
+      svg.appendChild(polyline);
+
+      points.forEach(p => {
+        const [x, y] = p.split(',');
+        const circle = document.createElementNS(svgNS, 'circle');
+        circle.setAttribute('cx', x);
+        circle.setAttribute('cy', y);
+        circle.setAttribute('r', 4);
+        circle.setAttribute('class', 'point');
+        svg.appendChild(circle);
+      });
+    }
+
+    function buildDonutChart(svgId, legendId, data) {
+      const svg = document.getElementById(svgId);
+      const legend = document.getElementById(legendId);
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      while (legend.firstChild) legend.removeChild(legend.firstChild);
+
+      const cx = 100, cy = 100, radius = 80;
+      const circumference = 2 * Math.PI * radius;
+      const total = data.reduce((sum, d) => sum + d.value, 0);
+
+      svg.setAttribute('viewBox', '0 0 200 200');
+
+      const bg = document.createElementNS(svgNS, 'circle');
+      bg.setAttribute('cx', cx);
+      bg.setAttribute('cy', cy);
+      bg.setAttribute('r', radius);
+      bg.setAttribute('class', 'donut-bg');
+      svg.appendChild(bg);
+
+      const g = document.createElementNS(svgNS, 'g');
+      g.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
+      let offset = 0;
+      data.forEach(d => {
+        const len = circumference * d.value / total;
+        const circle = document.createElementNS(svgNS, 'circle');
+        circle.setAttribute('cx', cx);
+        circle.setAttribute('cy', cy);
+        circle.setAttribute('r', radius);
+        circle.setAttribute('stroke', d.color);
+        circle.setAttribute('stroke-dasharray', `${len} ${circumference - len}`);
+        circle.setAttribute('stroke-dashoffset', -offset);
+        circle.setAttribute('class', 'donut-segment');
+        g.appendChild(circle);
+        offset += len;
+      });
+      svg.appendChild(g);
+
+      const totalText = document.createElementNS(svgNS, 'text');
+      totalText.setAttribute('x', cx);
+      totalText.setAttribute('y', cy - 2);
+      totalText.setAttribute('text-anchor', 'middle');
+      totalText.setAttribute('fill', '#0f172a');
+      totalText.setAttribute('font-size', '24');
+      totalText.setAttribute('font-weight', '700');
+      totalText.textContent = total;
+      svg.appendChild(totalText);
+
+      const subText = document.createElementNS(svgNS, 'text');
+      subText.setAttribute('x', cx);
+      subText.setAttribute('y', cy + 18);
+      subText.setAttribute('text-anchor', 'middle');
+      subText.setAttribute('fill', '#64748b');
+      subText.setAttribute('font-size', '12');
+      subText.textContent = '案件总数';
+      svg.appendChild(subText);
+
+      data.forEach(d => {
+        const pct = ((d.value / total) * 100).toFixed(1) + '%';
+        const li = document.createElement('li');
+        li.className = 'legend-item';
+        li.innerHTML = `
+          <span class="legend-dot" style="background:${d.color}"></span>
+          <span>${d.label}</span>
+          <span class="legend-value">${pct}</span>
+        `;
+        legend.appendChild(li);
+      });
+    }
+
+    buildLineChart('revenueChart', [62, 58, 70, 76, 82, 78, 90, 95, 104, 112, 120, 128]);
+
+    buildDonutChart('statusChart', 'statusLegend', [
+      { label: '进行中', value: 86, color: '#3b82f6' },
+      { label: '已结案', value: 56, color: '#10b981' },
+      { label: '已归档', value: 27, color: '#94a3b8' },
+      { label: '待立案', value: 17, color: '#f59e0b' }
+    ]);
+  </script>
+</body>
+</html>

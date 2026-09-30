@@ -1,0 +1,10 @@
+3 高 越权登记：docstring 要求“名下客户”，但 user 参数从未使用，未校验 customer_id 归属，任意律师可为任意客户记费。修复：插入前按 user 查询客户归属/权限，不匹配则拒绝并记审计日志。
+7 高 SQL注入：用 % 格式化把 customer_id/amount/note 直接拼进 SQL（note 含单引号即报错，恶意输入可篡改语句任意写库）。修复：改参数化 db_conn.execute("INSERT INTO fees (customer_id, amount, note) VALUES (?, ?, ?)", (...))，与文件其余 ? 用法统一。
+10 中 approve_fee 同样忽略 user：未校验审批权限（任何调用者都能通过/退回单据），未校验草稿当前状态（已审单可被反复改写），也未记录审批人。修复：校验 user 角色；UPDATE 增加 AND status='draft' 并检查 rowcount；同时写入审批人/时间。
+22 中 健壮性缺陷：客户无 balances 记录时 fetchone() 返回 None，row["balance"] 直接抛 TypeError 崩溃；且按列名取值依赖 row_factory=sqlite3.Row（默认连接返回 tuple 同样报错）。修复：判空返回“无余额记录”或先初始化，连接统一设置 row_factory。
+25 中 正确性缺陷：balance == 0.0 即返回“无需调整”，导致余额为 0 的客户永远无法充值/入账（delta>0 的合法调整被拦截），条件应仅保留 delta == 0.0；另浮点 == 比较不可靠，金额建议用 Decimal 或整数分。
+27 中 并发丢失更新：SELECT→计算→UPDATE 非原子且无事务/行锁，并发调整同一客户会相互覆盖（两次 +100 只生效一次）或绕过“余额不足”校验。修复：改原子语句 UPDATE balances SET balance = balance + ? WHERE customer_id = ? AND balance + ? >= 0，按 rowcount 判定结果。
+34 中 资源泄漏：open 后无 with/finally 关闭，异常路径句柄泄漏、缓冲未刷写可能导出残缺 CSV。修复：with open(out_path, "w", encoding="utf-8", newline="") as f: ...
+45 中 静默吞异常：except Exception: pass 与 docstring“记录日志后继续”矛盾，失败记录无任何痕迹、事后无法对账排查。修复：记录异常堆栈与失败记录内容，返回成功/失败计数或失败清单。
+38 低 CSV 公式注入：note 等字段若以 =、+、-、@ 开头，对账文件在 Excel/WPS 打开时会被当公式执行（=HYPERLINK 钓鱼、外传数据）。修复：写出前对危险前缀加单引号转义或过滤。
+44 低 以 {"customer_id": -1} 伪造 user 调用 submit_fee：批量导入无真实操作者身份、审计无法追溯（且一旦补上归属校验此导入会全部失败）。修复：传入真实操作者/导入批次来源并落审计。

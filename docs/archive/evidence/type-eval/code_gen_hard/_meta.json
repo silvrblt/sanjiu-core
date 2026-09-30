@@ -1,0 +1,21 @@
+{
+ "task": "code_gen_hard",
+ "date": "2026-09-04",
+ "round": "第二批",
+ "models": [
+  "deepseek-v4-flash",
+  "deepseek-v4-pro",
+  "glm-5.3",
+  "qwen3.8-max"
+ ],
+ "prompt_file": "prompt.txt",
+ "results": [
+  {
+   "model": "deepseek-v4-flash",
+   "seconds": 260,
+   "in_tokens": 423,
+   "out_tokens": 40000,
+   "reasoning_tokens": 39740
+  }
+ ]
+}

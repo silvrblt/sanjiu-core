@@ -1,0 +1,60 @@
+{
+ "task": "ui_design",
+ "date": "2026-09-04",
+ "round": "第二批",
+ "models": [
+  "deepseek-v4-flash",
+  "deepseek-v4-pro",
+  "hy3",
+  "minimax-m3",
+  "doubao-seed-2-1-turbo-260628",
+  "kimi-k2.7-code",
+  "glm-5.3",
+  "qwen3.8-max"
+ ],
+ "prompt_file": "prompt.txt",
+ "results": [
+  {
+   "model": "deepseek-v4-flash",
+   "seconds": 175,
+   "in_tokens": 384,
+   "out_tokens": 27912,
+   "reasoning_tokens": 22087
+  },
+  {
+   "model": "deepseek-v4-pro",
+   "seconds": 170,
+   "in_tokens": 384,
+   "out_tokens": 13455,
+   "reasoning_tokens": 6832
+  },
+  {
+   "model": "hy3",
+   "seconds": 98,
+   "in_tokens": 306,
+   "out_tokens": 11817,
+   "reasoning_tokens": 8142
+  },
+  {
+   "model": "kimi-k2.7-code",
+   "seconds": 98,
+   "in_tokens": 302,
+   "out_tokens": 9897,
+   "reasoning_tokens": 5419
+  },
+  {
+   "model": "glm-5.3",
+   "seconds": 492,
+   "in_tokens": 316,
+   "out_tokens": 29334,
+   "reasoning_tokens": 19071
+  },
+  {
+   "model": "qwen3.8-max",
+   "seconds": 445,
+   "in_tokens": 381,
+   "out_tokens": 19002,
+   "reasoning_tokens": 6370
+  }
+ ]
+}

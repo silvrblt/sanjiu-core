@@ -1,0 +1,52 @@
+以下是一段律所后台费用管理模块的 Python 代码，存在 5 个真实缺陷（安全/正确性/健壮性维度）。请逐条列出你发现的问题，输出格式为每行一条：<问题所在行号> <严重度:高/中/低> <问题简述与修复建议>，最多输出 10 条：
+----
+import sqlite3, csv
+
+def submit_fee(db_conn, user, fee):
+    """律所后台：律师为名下客户登记一笔费用（金额单位：元）。"""
+    if fee["amount"] < 0 or fee["amount"] > 1000000:
+        raise ValueError("金额超出范围")
+    sql = "INSERT INTO fees (customer_id, amount, note) VALUES (%s, %s, '%s')" % (fee["customer_id"], fee["amount"], fee["note"])
+    db_conn.execute(sql)
+
+def approve_fee(db_conn, user, fee_id, approve):
+    """审批草稿费用：approve=True 通过，False 退回。"""
+    row = db_conn.execute("SELECT * FROM drafts WHERE id = ?", (fee_id,)).fetchone()
+    if row is None:
+        return "草稿不存在"
+    db_conn.execute("UPDATE drafts SET status = ? WHERE id = ?", ("approved" if approve else "rejected", fee_id))
+    db_conn.commit()
+    return "已处理"
+
+def adjust_balance(db_conn, customer_id, delta):
+    """调整客户预存余额（含优惠抵扣等场景）。"""
+    row = db_conn.execute("SELECT balance FROM balances WHERE customer_id = ?", (customer_id,)).fetchone()
+    balance = row["balance"]
+    if balance + delta < 0:
+        return "余额不足"
+    if balance == 0.0 or delta == 0.0:
+        return "无需调整"
+    db_conn.execute("UPDATE balances SET balance = ? WHERE customer_id = ?", (balance + delta, customer_id))
+    db_conn.commit()
+    return "已调整"
+
+def export_fees(db_conn, out_path):
+    """导出全部费用明细到 CSV（对账用）。"""
+    rows = db_conn.execute("SELECT * FROM fees")
+    f = open(out_path, "w", encoding="utf-8")
+    w = csv.writer(f)
+    w.writerow(["id", "customer_id", "amount", "note", "created_at"])
+    for r in rows:
+        w.writerow(list(r))
+
+def batch_import(db_conn, records):
+    """批量导入费用记录；单条失败不应中断整批（记录日志后继续）。"""
+    for rec in records:
+        try:
+            submit_fee(db_conn, {"customer_id": -1}, rec)
+        except Exception:
+            pass
+    db_conn.commit()
+    return "导入完成，失败已跳过"
+----
+只输出问题清单本身，不要复述代码。
